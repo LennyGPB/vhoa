@@ -5,7 +5,9 @@ import { LegalPage, LegalSection } from '@/components/LegalPage';
 import { LEGAL } from '@/lib/legal';
 
 export const metadata: Metadata = {
-  title: 'VHOA : Politique de confidentialité',
+  title: 'Politique de confidentialité',
+  description: 'Comment VHOA protège tes données : ce qui est collecté, pourquoi, combien de temps, et tes droits.',
+  alternates: { canonical: '/confidentialite' },
 };
 
 export default function ConfidentialitePage() {

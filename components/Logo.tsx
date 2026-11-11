@@ -1,4 +1,5 @@
-const SRC = '/logo_vhoa_transparent.png';
+// Version allégée (240 px de haut, 19 Ko) : le logo ne s'affiche jamais en plus grand.
+const SRC = '/logo-mask.png';
 /** Proportions du fichier (1560 × 1721). */
 const RATIO = 1560 / 1721;
 

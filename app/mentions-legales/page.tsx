@@ -5,7 +5,9 @@ import { LegalPage, LegalSection } from '@/components/LegalPage';
 import { LEGAL } from '@/lib/legal';
 
 export const metadata: Metadata = {
-  title: 'VHOA : Mentions légales',
+  title: 'Mentions légales',
+  description: 'Mentions légales du site VHOA : éditeur, hébergement et propriété intellectuelle.',
+  alternates: { canonical: '/mentions-legales' },
 };
 
 export default function MentionsLegalesPage() {

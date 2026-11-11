@@ -1,9 +1,9 @@
 /** Liens et textes partagés du site. À compléter avec les vraies URLs. */
 export const SITE = {
   name: 'VHOA',
+  url: 'https://vhoa.fr',
   tagline: 'Prends la parole. Progresse chaque semaine.',
-  // TODO : remplacer par l'invitation Discord définitive.
-  discord: 'https://discord.gg/',
+  discord: 'https://discord.gg/NtfXhr2NEz',
   socials: {
     instagram: 'https://instagram.com/',
     tiktok: 'https://tiktok.com/',

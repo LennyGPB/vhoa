@@ -1,9 +1,11 @@
 import Link from 'next/link';
 
 import { Concept } from '@/components/Concept';
+import { Faq } from '@/components/Faq';
 import { Hero } from '@/components/Hero';
 import { Join } from '@/components/Join';
 import { Logo } from '@/components/Logo';
+import { StructuredData } from '@/components/StructuredData';
 import { WaitlistModal } from '@/components/WaitlistModal';
 
 export default function Home() {
@@ -13,6 +15,7 @@ export default function Home() {
         <Hero />
         <Concept />
         <Join />
+        <Faq />
       </main>
       <footer className="border-t border-white/[0.06] px-5 py-10 sm:px-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 text-[13px] text-white/45 sm:flex-row sm:items-center sm:justify-between">
@@ -33,6 +36,7 @@ export default function Home() {
         </div>
       </footer>
       <WaitlistModal />
+      <StructuredData />
     </>
   );
 }

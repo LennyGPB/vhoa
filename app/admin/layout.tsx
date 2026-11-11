@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'VHOA : Admin',
+  title: 'Admin',
   // Jamais indexé par les moteurs de recherche.
   robots: { index: false, follow: false, nocache: true },
 };

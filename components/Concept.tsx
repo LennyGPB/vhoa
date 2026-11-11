@@ -90,6 +90,10 @@ export function Concept() {
           <br />
           <span className="text-white/40">Toute une communauté à convaincre.</span>
         </h2>
+        <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-muted">
+          VHOA est l’app d’éloquence qui fait de la prise de parole un rendez-vous. Tu t’entraînes à parler en
+          public, tu défends tes idées et tu gagnes en aisance à l’oral, une semaine après l’autre.
+        </p>
 
         {/* Trois cartes reliées par des ponts liquides. */}
         <ol className="mt-16 flex flex-col md:grid md:grid-cols-[1fr_40px_1fr_40px_1fr]">

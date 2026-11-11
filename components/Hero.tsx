@@ -8,6 +8,7 @@ import { MobileMenu } from './MobileMenu';
 const NAV = [
   { href: '#concept', label: 'Le concept' },
   { href: WAITLIST_HASH, label: 'Liste d’attente' },
+  { href: '#faq', label: 'FAQ' },
   { href: SITE.discord, label: 'Communauté' },
 ];
 
@@ -82,11 +83,11 @@ export function Hero() {
         {/* Nom + goutte */}
         <div className="relative flex flex-col items-center justify-center pb-14 pt-16 sm:pb-20 sm:pt-20">
           <div className="relative">
-            <h1
-              aria-label="VHOA"
-              className="rise select-none text-[31vw] sm:text-[clamp(96px,22vw,340px)] font-black leading-[0.9] tracking-[-0.065em] text-[#E4F1FF] [filter:drop-shadow(0_24px_50px_rgb(0_0_0/0.45))]"
-              style={{ animationDelay: '80ms' }}>
+            {/* Pas d'animation d'apparition ici : c'est le plus gros élément de la page (mesure LCP de Google). */}
+            <h1 className="select-none text-[31vw] sm:text-[clamp(96px,22vw,340px)] font-black leading-[0.9] tracking-[-0.065em] text-[#E4F1FF] [filter:drop-shadow(0_24px_50px_rgb(0_0_0/0.45))]">
               VHOA
+              {/* Lu par Google et les lecteurs d'écran, invisible à l'œil. */}
+              <span className="sr-only"> : l’app d’éloquence pour progresser à l’oral</span>
             </h1>
             {/* Pas de `filter` sur ces parents : il empêcherait le verre de flouter les lettres derrière. */}
             <div className="pointer-events-none absolute left-1/2 top-1/2 w-[46vw] sm:w-[clamp(170px,25vw,400px)] -translate-x-[47%] -translate-y-1/2">
