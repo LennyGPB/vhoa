@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 const DESCRIPTION =
-  'VHOA, l’app d’éloquence pour progresser à l’oral : un thème par semaine, une minute pour convaincre, le vote de la communauté et un coach IA. Bientôt sur iOS et Android.';
+  'VHOA, l’éloquence en ligne pour progresser à l’oral : un thème par semaine, une minute pour convaincre, le vote de la communauté et un coach IA.';
 
 export const metadata: Metadata = {
   // Base des URL absolues (aperçus de liens, plan du site, adresses canoniques).
@@ -63,6 +63,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#0a0a0b',
+  // Donne accès à la zone sous la barre d'accueil de l'iPhone (env(safe-area-inset-bottom)) pour la barre d'onglets.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

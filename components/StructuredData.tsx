@@ -1,10 +1,9 @@
-import { FAQ } from '@/lib/faq';
 import { LEGAL } from '@/lib/legal';
 import { SITE } from '@/lib/site';
 
 /**
  * Données structurées (schema.org, JSON-LD) : décrivent à Google et aux moteurs IA
- * qui édite le site, ce qu'est l'app et les questions fréquentes.
+ * qui édite le site et ce qu'est VHOA.
  */
 export function StructuredData() {
   const org = `${SITE.url}/#organisation`;
@@ -31,24 +30,18 @@ export function StructuredData() {
         publisher: { '@id': org },
       },
       {
-        '@type': 'MobileApplication',
+        '@type': 'WebApplication',
         name: 'VHOA',
+        url: SITE.url,
         description:
-          'L’app d’éloquence pour progresser à l’oral : un thème par semaine, une minute pour convaincre, le vote de la communauté et un coach IA.',
-        operatingSystem: 'iOS, Android',
+          'Progresse à l’oral : un thème par semaine, une minute pour convaincre, le vote de la communauté et un coach IA.',
+        browserRequirements: 'Navigateur récent avec accès au micro ou à la caméra',
         applicationCategory: 'EducationalApplication',
         inLanguage: 'fr-FR',
         publisher: { '@id': org },
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR', availability: 'https://schema.org/PreOrder' },
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
       },
-      {
-        '@type': 'FAQPage',
-        mainEntity: FAQ.map((item) => ({
-          '@type': 'Question',
-          name: item.q,
-          acceptedAnswer: { '@type': 'Answer', text: item.a },
-        })),
-      },
+      // Pas de bloc FAQPage : Google exige que les questions soient visibles sur la page.
     ],
   };
 

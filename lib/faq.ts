@@ -14,7 +14,7 @@ export const FAQ = [
   },
   {
     q: 'VHOA est-il gratuit ?',
-    a: 'Oui. L’app est gratuite et inclut une analyse du coach IA par mois. Un abonnement Premium, facultatif, débloque les analyses illimitées, un retour plus détaillé et le suivi de ta progression.',
+    a: 'Oui. L’app est gratuite et inclut une analyse du coach IA par mois. Un abonnement Premium, facultatif (4,99 € par mois ou 35 € par an, sans engagement), débloque 60 analyses par mois, un retour plus détaillé, le suivi de ta progression, des gels de série et des effets de profil.',
   },
   {
     q: 'À partir de quel âge peut-on utiliser VHOA ?',

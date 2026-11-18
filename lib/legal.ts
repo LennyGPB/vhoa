@@ -6,5 +6,10 @@ export const LEGAL = {
   address: '5 rue Auguste Bernard, 78320 La Verrière, France',
   siret: '938 832 987 00011',
   email: 'vhoa-app@proton.me',
-  updated: '11 novembre 2026',
-} as const;
+  updated: '18 novembre 2026',
+  /**
+   * Médiateur de la consommation (obligatoire avant de vendre Premium).
+   * Exemple : { name: '…', address: '…', url: 'https://…' }
+   */
+  mediator: null as { name: string; address: string; url: string } | null,
+};

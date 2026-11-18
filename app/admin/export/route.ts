@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/admin-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { allEntries } from '@/lib/admin-data';
 
 /** Cellule CSV : guillemets échappés, et neutralise les formules (=, +, -, @) à l'ouverture dans Excel. */
@@ -9,7 +9,7 @@ function cell(value: string) {
 
 /** Export complet de la liste d'attente (CSV « ; » + BOM, lisible directement par Excel en français). */
 export async function GET() {
-  await requireAdmin();
+  if (!(await isAdmin())) return new Response('Accès réservé aux admins', { status: 403 });
   const rows = await allEntries();
   const date = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' });
 
