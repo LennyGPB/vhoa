@@ -45,6 +45,13 @@ export function Themes({ notify }: { notify: Notify }) {
 
   const reload = () => setVersion((v) => v + 1);
   const shown = rows?.filter((t) => (filter === 'CLOSED' ? t.status === 'CLOSED' : t.status !== 'CLOSED'));
+  // La file démarre après le dernier défi de la semaine déjà en place (en cours ou programmé).
+  const queueStart =
+    rows
+      ?.filter((t) => t.period === 'WEEKLY' && t.status !== 'CLOSED')
+      .map((t) => t.endsAt)
+      .sort()
+      .at(-1) ?? null;
   // Prochain défi de la semaine programmé (le plus proche à venir).
   const nextWeek =
     rows
@@ -77,7 +84,7 @@ export function Themes({ notify }: { notify: Notify }) {
           </ActionButton>
         }
       />
-      <ThemeQueue notify={notify} nextWeek={nextWeek} onChange={reload} />
+      <ThemeQueue notify={notify} nextWeek={nextWeek} queueStart={queueStart} onChange={reload} />
 
       <FilterChips
         value={filter}
@@ -287,7 +294,23 @@ export function Waitlist({ notify }: { notify: Notify }) {
  * File d'attente des défis de la semaine : chaque nouvelle semaine prend le sujet en tête.
  * Réordonnable au glisser-déposer (souris ou doigt, poignée ⋮⋮) ou avec les flèches.
  */
-function ThemeQueue({ notify, nextWeek, onChange }: { notify: Notify; nextWeek: AdminTheme | null; onChange: () => void }) {
+const weekDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' });
+
+function ThemeQueue({
+  notify,
+  nextWeek,
+  queueStart,
+  onChange,
+}: {
+  notify: Notify;
+  nextWeek: AdminTheme | null;
+  /** Fin du dernier défi de la semaine en place : le n° 1 de la file démarre à cette date. */
+  queueStart: string | null;
+  onChange: () => void;
+}) {
+  /** Date de démarrage du sujet n° i (une semaine chacun). */
+  const startOf = (i: number) =>
+    queueStart ? weekDay.format(new Date(new Date(queueStart).getTime() + i * 7 * 24 * 3600_000)) : null;
   const [items, setItems] = useState<QueuedTheme[] | null>(null);
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; subject: string } | null>(null);
@@ -338,7 +361,9 @@ function ThemeQueue({ notify, nextWeek, onChange }: { notify: Notify; nextWeek: 
 
   // Glisser-déposer : on suit le pointeur et on déplace l'élément quand il passe sur un autre.
   const onPointerDown = (e: React.PointerEvent, id: string) => {
-    if (!items) return;
+    if (!items || editing) return;
+    // Toute la ligne s'attrape, sauf ses boutons et son champ.
+    if ((e.target as HTMLElement).closest('button:not([data-handle]), input')) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     before.current = items.map((i) => i.id);
@@ -371,7 +396,8 @@ function ThemeQueue({ notify, nextWeek, onChange }: { notify: Notify; nextWeek: 
       <div>
         <h3 className="text-[17px] font-bold">File d’attente · défis de la semaine</h3>
         <p className="mt-0.5 text-[13px] leading-snug text-white/55">
-          Chaque lundi, le défi prend le sujet en tête de file. File vide : GPT propose un sujet.
+          Glisse les sujets pour les classer : le n° 1 passe en premier, puis le 2, et ainsi de suite. File vide : GPT
+          propose un sujet.
         </p>
       </div>
 
@@ -415,19 +441,23 @@ function ThemeQueue({ notify, nextWeek, onChange }: { notify: Notify; nextWeek: 
                 if (el) rowRefs.current.set(it.id, el);
                 else rowRefs.current.delete(it.id);
               }}
-              className={`flex items-center gap-2 rounded-[18px] p-2 pr-3 transition-[background-color,box-shadow] ${
-                dragId === it.id ? 'bg-accent/15 shadow-[inset_0_0_0_1.5px_var(--color-accent)]' : 'bg-white/[0.04]'
+              onPointerDown={(e) => onPointerDown(e, it.id)}
+              className={`flex cursor-grab touch-none select-none items-center gap-2 rounded-[18px] p-2 pr-3 transition-[background-color,box-shadow,transform] active:cursor-grabbing ${
+                dragId === it.id
+                  ? 'relative z-10 scale-[1.02] bg-accent/20 shadow-[0_14px_40px_-12px_rgb(0_0_0/0.8),inset_0_0_0_1.5px_var(--color-accent)]'
+                  : 'bg-white/[0.04] hover:bg-white/[0.06]'
               }`}>
               <button
                 type="button"
+                data-handle
                 aria-label={`Déplacer « ${it.subject} »`}
-                onPointerDown={(e) => onPointerDown(e, it.id)}
                 className="grid h-10 w-8 shrink-0 cursor-grab touch-none place-items-center rounded-xl text-[16px] leading-none text-white/40 hover:text-white active:cursor-grabbing">
                 ⋮⋮
               </button>
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/[0.06] text-[12px] font-bold text-white/70">
                 {i + 1}
               </span>
+              <div className="min-w-0 flex-1">
               {editing?.id === it.id ? (
                 <input
                   autoFocus
@@ -442,8 +472,13 @@ function ThemeQueue({ notify, nextWeek, onChange }: { notify: Notify; nextWeek: 
                   className="h-10 min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 text-[16px] text-white outline-none focus:shadow-[inset_0_0_0_1.5px_var(--color-accent)]"
                 />
               ) : (
-                <p className="min-w-0 flex-1 text-[14px] font-medium leading-snug">« {it.subject} »</p>
+                <p className="text-[14px] font-medium leading-snug">« {it.subject} »</p>
               )}
+              <p className="mt-0.5 text-[12px] text-white/45">
+                {i === 0 && <span className="mr-1.5 font-semibold text-azure">Prochain</span>}
+                {startOf(i) ? `à partir du ${startOf(i)}` : ''}
+              </p>
+              </div>
               <div className="flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
