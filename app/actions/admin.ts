@@ -188,6 +188,43 @@ export async function regenerateTheme(id: unknown): Promise<Result<unknown>> {
   return admin(`/themes/${id}/regenerate`, 'POST');
 }
 
+/* ---------- File d'attente des défis de la semaine ---------- */
+
+export interface QueuedTheme {
+  id: string;
+  subject: string;
+  position: number;
+}
+
+const SUBJECT_ERROR = { ok: false, code: 'INVALID', message: 'Sujet : 10 à 140 caractères.' } as const;
+
+export async function loadThemeQueue(): Promise<Result<QueuedTheme[]>> {
+  return admin('/theme-queue');
+}
+
+export async function addToThemeQueue(subject: unknown): Promise<Result<QueuedTheme[]>> {
+  const s = text(subject, 140);
+  if (s.length < 10) return SUBJECT_ERROR;
+  return admin('/theme-queue', 'POST', { subject: s });
+}
+
+export async function updateQueuedTheme(id: unknown, subject: unknown): Promise<Result<QueuedTheme[]>> {
+  const s = text(subject, 140);
+  if (!isId(id) || s.length < 10) return SUBJECT_ERROR;
+  return admin(`/theme-queue/${id}`, 'PATCH', { subject: s });
+}
+
+export async function removeQueuedTheme(id: unknown): Promise<Result<QueuedTheme[]>> {
+  if (!isId(id)) return BAD;
+  return admin(`/theme-queue/${id}`, 'DELETE');
+}
+
+/** Nouvel ordre de la file : tous les identifiants, du prochain au dernier. */
+export async function reorderThemeQueue(ids: unknown): Promise<Result<QueuedTheme[]>> {
+  if (!Array.isArray(ids) || ids.length > 200 || !ids.every(isId)) return BAD;
+  return admin('/theme-queue/order', 'PUT', { ids });
+}
+
 export async function createTheme(period: unknown, date: unknown, subject: unknown): Promise<Result<unknown>> {
   const s = text(subject, 140);
   if (period !== 'weekly' && period !== 'monthly') return BAD;

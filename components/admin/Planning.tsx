@@ -1,15 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
+  addToThemeQueue,
   createTheme,
   deleteWaitlistEntry,
+  loadThemeQueue,
   loadThemes,
   loadWaitlist,
   regenerateTheme,
+  removeQueuedTheme,
+  reorderThemeQueue,
+  updateQueuedTheme,
   updateTheme,
   type AdminTheme,
+  type QueuedTheme,
 } from '@/app/actions/admin';
 import type { WaitlistRow, WaitlistStats } from '@/lib/admin-data';
 
@@ -39,6 +45,11 @@ export function Themes({ notify }: { notify: Notify }) {
 
   const reload = () => setVersion((v) => v + 1);
   const shown = rows?.filter((t) => (filter === 'CLOSED' ? t.status === 'CLOSED' : t.status !== 'CLOSED'));
+  // Prochain défi de la semaine programmé (le plus proche à venir).
+  const nextWeek =
+    rows
+      ?.filter((t) => t.period === 'WEEKLY' && t.status === 'SCHEDULED')
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0] ?? null;
 
   const save = async () => {
     if (!editing) return;
@@ -66,6 +77,8 @@ export function Themes({ notify }: { notify: Notify }) {
           </ActionButton>
         }
       />
+      <ThemeQueue notify={notify} nextWeek={nextWeek} onChange={reload} />
+
       <FilterChips
         value={filter}
         onChange={setFilter}
@@ -267,5 +280,215 @@ export function Waitlist({ notify }: { notify: Notify }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * File d'attente des défis de la semaine : chaque nouvelle semaine prend le sujet en tête.
+ * Réordonnable au glisser-déposer (souris ou doigt, poignée ⋮⋮) ou avec les flèches.
+ */
+function ThemeQueue({ notify, nextWeek, onChange }: { notify: Notify; nextWeek: AdminTheme | null; onChange: () => void }) {
+  const [items, setItems] = useState<QueuedTheme[] | null>(null);
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState<{ id: string; subject: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLLIElement>());
+  const before = useRef<string[]>([]);
+
+  useEffect(() => {
+    loadThemeQueue().then((res) => setItems(res.ok ? res.data : []));
+  }, []);
+
+  /** Applique une réponse de l'API (la file à jour) ; la semaine prochaine a pu changer. */
+  const apply = (res: { ok: true; data: QueuedTheme[] } | { ok: false; message: string }, message?: string) => {
+    if (!res.ok) {
+      notify(res.message);
+      loadThemeQueue().then((r) => r.ok && setItems(r.data));
+      return false;
+    }
+    setItems(res.data);
+    if (message) notify(message);
+    onChange();
+    return true;
+  };
+
+  const add = async () => {
+    setBusy(true);
+    const ok = apply(await addToThemeQueue(draft), 'Ajouté à la file.');
+    setBusy(false);
+    if (ok) setDraft('');
+  };
+
+  const saveOrder = async (list: QueuedTheme[]) => {
+    const ids = list.map((i) => i.id);
+    if (ids.join() === before.current.join()) return;
+    apply(await reorderThemeQueue(ids), 'Ordre enregistré.');
+  };
+
+  const move = (from: number, to: number) => {
+    if (!items || to < 0 || to >= items.length || from === to) return;
+    before.current = items.map((i) => i.id);
+    const next = [...items];
+    const [it] = next.splice(from, 1);
+    next.splice(to, 0, it);
+    setItems(next);
+    void saveOrder(next);
+  };
+
+  // Glisser-déposer : on suit le pointeur et on déplace l'élément quand il passe sur un autre.
+  const onPointerDown = (e: React.PointerEvent, id: string) => {
+    if (!items) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    before.current = items.map((i) => i.id);
+    setDragId(id);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragId || !items) return;
+    const y = e.clientY;
+    const from = items.findIndex((i) => i.id === dragId);
+    let to = from;
+    items.forEach((it, i) => {
+      const r = rowRefs.current.get(it.id)?.getBoundingClientRect();
+      if (r && y > r.top && y < r.bottom) to = i;
+    });
+    if (to !== from) {
+      const next = [...items];
+      const [it] = next.splice(from, 1);
+      next.splice(to, 0, it);
+      setItems(next);
+    }
+  };
+  const onPointerUp = () => {
+    if (!dragId || !items) return;
+    setDragId(null);
+    void saveOrder(items);
+  };
+
+  return (
+    <section className="glass-solid flex flex-col gap-4 rounded-[24px] p-4 md:p-5">
+      <div>
+        <h3 className="text-[17px] font-bold">File d’attente · défis de la semaine</h3>
+        <p className="mt-0.5 text-[13px] leading-snug text-white/55">
+          Chaque lundi, le défi prend le sujet en tête de file. File vide : GPT propose un sujet.
+        </p>
+      </div>
+
+      {nextWeek && (
+        <div className="flex items-start gap-3 rounded-[18px] bg-accent/10 p-3.5 shadow-[inset_0_0_0_1px_rgb(74_168_255/0.25)]">
+          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-white">Semaine prochaine</span>
+          <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug">
+            « {nextWeek.subject} »
+            {nextWeek.aiGenerated && <span className="ml-1.5 text-[12px] font-medium text-white/50">(GPT : remplacé par la tête de file)</span>}
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && draft.trim().length >= 10 && !busy && add()}
+          maxLength={140}
+          placeholder="Nouveau sujet : Faut-il… ? (10 à 140 caractères)"
+          aria-label="Nouveau sujet à ajouter à la file"
+          className="h-12 min-w-0 flex-1 rounded-2xl bg-white/[0.05] px-4 text-[16px] text-white placeholder:text-white/35 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.08)] outline-none focus:shadow-[inset_0_0_0_1.5px_var(--color-accent)]"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={busy || draft.trim().length < 10}
+          className="h-12 shrink-0 rounded-full bg-accent px-5 text-[14px] font-semibold text-white transition-[filter] hover:brightness-110 disabled:opacity-40">
+          Ajouter à la file
+        </button>
+      </div>
+
+      {items === null && <Loading rows={2} h={56} />}
+      {items?.length === 0 && <p className="py-3 text-center text-[13px] text-white/45">La file est vide.</p>}
+      {!!items?.length && (
+        <ol className="flex flex-col gap-1.5" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+          {items.map((it, i) => (
+            <li
+              key={it.id}
+              ref={(el) => {
+                if (el) rowRefs.current.set(it.id, el);
+                else rowRefs.current.delete(it.id);
+              }}
+              className={`flex items-center gap-2 rounded-[18px] p-2 pr-3 transition-[background-color,box-shadow] ${
+                dragId === it.id ? 'bg-accent/15 shadow-[inset_0_0_0_1.5px_var(--color-accent)]' : 'bg-white/[0.04]'
+              }`}>
+              <button
+                type="button"
+                aria-label={`Déplacer « ${it.subject} »`}
+                onPointerDown={(e) => onPointerDown(e, it.id)}
+                className="grid h-10 w-8 shrink-0 cursor-grab touch-none place-items-center rounded-xl text-[16px] leading-none text-white/40 hover:text-white active:cursor-grabbing">
+                ⋮⋮
+              </button>
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/[0.06] text-[12px] font-bold text-white/70">
+                {i + 1}
+              </span>
+              {editing?.id === it.id ? (
+                <input
+                  autoFocus
+                  value={editing.subject}
+                  maxLength={140}
+                  onChange={(e) => setEditing({ ...editing, subject: e.target.value })}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Escape') setEditing(null);
+                    if (e.key === 'Enter' && apply(await updateQueuedTheme(it.id, editing.subject), 'Sujet modifié.')) setEditing(null);
+                  }}
+                  aria-label="Modifier le sujet"
+                  className="h-10 min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 text-[16px] text-white outline-none focus:shadow-[inset_0_0_0_1.5px_var(--color-accent)]"
+                />
+              ) : (
+                <p className="min-w-0 flex-1 text-[14px] font-medium leading-snug">« {it.subject} »</p>
+              )}
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  aria-label="Monter"
+                  disabled={i === 0}
+                  onClick={() => move(i, i - 1)}
+                  className="grid size-8 place-items-center rounded-full text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-25">
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label="Descendre"
+                  disabled={i === items.length - 1}
+                  onClick={() => move(i, i + 1)}
+                  className="grid size-8 place-items-center rounded-full text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-25">
+                  ↓
+                </button>
+                {editing?.id === it.id ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (apply(await updateQueuedTheme(it.id, editing.subject), 'Sujet modifié.')) setEditing(null);
+                    }}
+                    className="ml-1 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white">
+                    OK
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditing({ id: it.id, subject: it.subject })}
+                    className="ml-1 rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-white/60 hover:text-white">
+                    Modifier
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={async () => apply(await removeQueuedTheme(it.id), 'Retiré de la file.')}
+                  className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-white/40 hover:text-[#FF8FA3]">
+                  Retirer
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
