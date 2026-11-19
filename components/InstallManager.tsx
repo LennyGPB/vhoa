@@ -1,12 +1,12 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import {
   initPwa,
   installSnoozed,
   onOpenInstall,
+  openInstall,
   promptInstall,
   snoozeInstall,
   takeSignupInstall,
@@ -52,7 +52,6 @@ const TITLES: Record<InstallReason, { title: ReactNode; text: string }> = {
  * Les propositions automatiques ne reviennent pas avant 14 jours si on choisit « Plus tard ».
  */
 export function InstallManager() {
-  const pathname = usePathname();
   const mode = useInstallMode();
   const [reason, setReason] = useState<InstallReason | null>(null);
   const [shown, setShown] = useState<InstallReason>('settings');
@@ -72,14 +71,13 @@ export function InstallManager() {
     [mode],
   );
 
-  // Après l'inscription : proposition sur la page d'arrivée, une fois le navigateur prêt.
+  // Inscription suivie d'un rechargement complet de la page : la proposition attend ici.
+  // (Pas de usePathname : ce composant est dans le layout racine, hors Suspense.)
   useEffect(() => {
     if (mode === 'unknown' || !takeSignupInstall()) return;
-    const t = setTimeout(() => {
-      if (mode !== 'installed' && (mode === 'prompt' || mode === 'ios') && !installSnoozed()) setReason('signup');
-    }, 1200);
+    const t = setTimeout(() => openInstall('signup'), 1200);
     return () => clearTimeout(t);
-  }, [mode, pathname]);
+  }, [mode]);
 
   const close = () => {
     if (reason && reason !== 'settings') snoozeInstall();

@@ -125,9 +125,15 @@ export function onOpenInstall(handler: (reason: InstallReason) => void) {
   return () => window.removeEventListener(EVENT, listener);
 }
 
-/** Inscription réussie : la proposition s'affichera sur la page suivante. */
+/**
+ * Inscription réussie : la proposition s'affiche sur la page d'arrivée. Navigation interne :
+ * l'événement part après un court délai. Rechargement complet : InstallManager reprend le drapeau.
+ */
 export function markSignupInstall() {
   storage.set(sessionStorage, SIGNUP_FLAG, '1');
+  setTimeout(() => {
+    if (takeSignupInstall()) openInstall('signup');
+  }, 1500);
 }
 
 export function takeSignupInstall() {
