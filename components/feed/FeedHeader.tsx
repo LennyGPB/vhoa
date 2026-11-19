@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useLayoutEffect, useRef, useState } from 'react';
 
 import { AccountNav } from '../AccountNav';
@@ -33,12 +32,10 @@ export function FeedHeader({ tab, onTabChange }: { tab: FeedTab; onTabChange: (t
 
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center justify-center px-4 pt-[max(env(safe-area-inset-top),12px)] md:justify-between md:px-8 md:pt-9">
-      <Link
-        href="/"
-        aria-label="VHOA, retour à l’accueil"
-        className="pointer-events-auto hidden transition-opacity hover:opacity-80 md:block">
+      {/* Sur ordinateur, le logo est dans le rail de navigation : on garde juste la place (centrage des onglets). */}
+      <span aria-hidden className="invisible hidden md:block">
         <Logo height={30} />
-      </Link>
+      </span>
 
       <div role="tablist" aria-label="Feed" className="glass pointer-events-auto relative flex rounded-full p-1">
         {box && (

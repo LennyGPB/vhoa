@@ -42,14 +42,28 @@ async function read<T>(path: string): Promise<ActionResult<T>> {
   return { ok: false, code: res.status === 401 ? 'AUTH' : res.code, message: res.message };
 }
 
-export async function loadFeed(tab: unknown): Promise<ActionResult<FeedPost[]>> {
+const CURSOR = /^[A-Za-z0-9_-]{1,400}$/;
+
+/** Une page du feed ; `cursor` = page suivante (null à la fin). */
+export async function loadFeed(
+  tab: unknown,
+  cursor?: unknown,
+): Promise<ActionResult<{ items: FeedPost[]; nextCursor: string | null }>> {
+  if (cursor !== undefined && (typeof cursor !== 'string' || !CURSOR.test(cursor))) return bad;
+  const after = cursor ? `&cursor=${cursor}` : '';
   // « Pour toi » est public ; « Abonnements » demande un compte.
   const res =
     tab === 'following'
-      ? await call<{ items: ApiFeedPost[] }>('/feed?tab=following&limit=20')
-      : await read<{ items: ApiFeedPost[] }>('/feed?limit=20');
+      ? await call<{ items: ApiFeedPost[]; nextCursor: string | null }>(`/feed?tab=following&limit=20${after}`)
+      : await read<{ items: ApiFeedPost[]; nextCursor: string | null }>(`/feed?limit=20${after}`);
   if (!res.ok) return res;
-  return { ok: true, data: res.data.items.filter((p) => p.status === 'published').map(fromApiPost) };
+  return {
+    ok: true,
+    data: {
+      items: res.data.items.filter((p) => p.status === 'published').map(fromApiPost),
+      nextCursor: res.data.nextCursor ?? null,
+    },
+  };
 }
 
 type Toggle = 'like' | 'save' | 'convinced';

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 
 import { PremiumScreen } from '@/components/premium/PremiumScreen';
-import { TabBar } from '@/components/TabBar';
 
 export const metadata: Metadata = {
   title: 'Premium',
@@ -12,9 +11,7 @@ export const metadata: Metadata = {
 
 export default function PremiumPage() {
   return (
-    <>
-      <PremiumScreen />
-      <TabBar />
-    </>
+    // Pas de barre d'onglets : le bouton d'achat est fixé en bas de l'écran (retour en haut à gauche).
+    <PremiumScreen />
   );
 }

@@ -54,8 +54,13 @@ export default function ConfidentialitePage() {
           </li>
           <li>
             <strong>Abonnement Premium :</strong> la formule choisie, les dates et montants des paiements, les
-            identifiants de client et d’abonnement Stripe, et ton accord pour un accès immédiat. Les données de carte
+            identifiants de client et d’abonnement Stripe. Les données de carte
             bancaire sont saisies et conservées uniquement par Stripe : nous n’y avons jamais accès.
+          </li>
+          <li>
+            <strong>Notifications :</strong> si tu les actives, l’adresse d’abonnement fournie par ton navigateur
+            ou ton téléphone (aucune donnée personnelle en clair). Tu peux les couper à tout moment depuis la page
+            Alertes ou les réglages de ton appareil.
           </li>
           <li>
             <strong>Liste d’attente :</strong> si tu t’y es inscrit, ton email et le type de téléphone choisi.
@@ -148,6 +153,10 @@ export default function ConfidentialitePage() {
           </li>
           <li>
             <strong>Stripe Payments Europe Ltd.</strong> (Irlande) (paiement de l’abonnement Premium, factures)
+          </li>
+          <li>
+            Les services de notifications de ton navigateur ou de ton téléphone (Google, Apple, Mozilla, Microsoft),
+            qui acheminent les notifications chiffrées sans pouvoir en lire le contenu.
           </li>
         </ul>
       </LegalSection>

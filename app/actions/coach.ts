@@ -47,3 +47,15 @@ export async function loadCoachHistory(cursor?: unknown): Promise<Result<{ items
   if (cursor !== undefined && (typeof cursor !== 'string' || !/^[A-Za-z0-9_-]{1,300}$/.test(cursor))) return BAD;
   return read(`/coach/history?limit=20${cursor ? `&cursor=${cursor}` : ''}`);
 }
+
+export interface CoachQuota {
+  used: number;
+  total: number;
+  remaining: number;
+  isPremium: boolean;
+}
+
+/** Quota du mois et statut Premium (onglet Coach IA, page du coach). */
+export async function loadCoachQuota(): Promise<Result<CoachQuota>> {
+  return read('/coach/quota');
+}

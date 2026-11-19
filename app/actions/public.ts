@@ -204,3 +204,54 @@ export async function requestAnalysis(postId: unknown): Promise<Result<Analysis>
   if (!isId(postId)) return BAD;
   return write(`/posts/${postId}/analysis`, 'POST');
 }
+
+/* ---------- Accueil : défi en cours et ses meilleures prises ---------- */
+
+export interface HomeTheme {
+  id: string;
+  subject: string;
+  endsAt: string;
+  participants: number;
+}
+
+export interface HomeTake {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  /** Couleur de l'avatar par défaut. */
+  color: string;
+  category: string;
+  /** Durée en secondes. */
+  duration: number;
+  convinced: number;
+  /** Début de la transcription (ou titre), affiché sur la vignette. */
+  excerpt: string;
+}
+
+/** Défi de la semaine ouvert (null s'il n'y en a pas) et ses 3 prises les plus « Convaincu ». */
+export async function loadHomeTheme(): Promise<{ theme: HomeTheme | null; takes: HomeTake[] }> {
+  const res = await read<{
+    weekly: { id: string; subject: string; endsAt: string; participantsCount: number; phase: string } | null;
+  }>('/themes/current');
+  const t = res.ok ? res.data.weekly : null;
+  if (!t || t.phase !== 'open') return { theme: null, takes: [] };
+  const theme = { id: t.id, subject: t.subject, endsAt: t.endsAt, participants: t.participantsCount };
+  const posts = await loadThemePosts(t.id);
+  const takes = posts.ok
+    ? posts.data.slice(0, 3).map((p) => {
+        const said = p.transcript.map((c) => c.text).join(' ').trim();
+        const text = said || p.title;
+        return {
+          id: p.id,
+          username: p.author.username,
+          avatarUrl: p.author.avatarUrl,
+          color: p.author.color,
+          category: p.category,
+          duration: p.duration,
+          convinced: p.convinced,
+          excerpt: text.length > 110 ? `${text.slice(0, 107).trimEnd()}…` : text,
+        };
+      })
+    : [];
+  return { theme, takes };
+}

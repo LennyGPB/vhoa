@@ -1,18 +1,16 @@
 import Link from 'next/link';
 
-import { DEMO_TAKES, DEMO_THEME } from '@/lib/demo';
 import { CREATE_HREF, SITE } from '@/lib/site';
 
 import { AccountNav } from './AccountNav';
 import { ArrowIcon, DiscordIcon, InstagramIcon, TikTokIcon, VoiceWaveIcon } from './icons';
 import { LiquidBlob } from './LiquidBlob';
 import { Logo } from './Logo';
-import { ThemeCountdown } from './ThemeCountdown';
-import { TopTakes } from './TopTakes';
+import { HomeTopTakes, ThemeCardHead, ThemePill, ThemeSubject } from './HomeTheme';
 
 const NAV = [
   { href: '#concept', label: 'Comment ça marche' },
-  { href: '#prises', label: 'Les prises' },
+  { href: '/feed', label: 'Les prises' },
   { href: '#coach', label: 'Coach IA' },
   { href: '/defis', label: 'Défis' },
   { href: SITE.discord, label: 'Communauté' },
@@ -47,19 +45,7 @@ export function Hero() {
       </div>
 
       {/* Thème en direct, posé au-dessus du cadre : le site vit au rythme de la semaine. */}
-      <Link
-        href="/defis"
-        className="glass mx-auto mb-4 inline-flex items-center gap-2.5 rounded-full px-4 py-2.5 text-[13px] font-semibold text-white/85 transition-colors hover:text-white sm:mb-5">
-        <span aria-hidden className="relative flex size-2">
-          <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-70 motion-reduce:hidden" />
-          <span className="relative size-2 rounded-full bg-accent" />
-        </span>
-        Défi de la semaine
-        <span className="text-white/45">·</span>
-        <span className="text-azure">
-          <ThemeCountdown />
-        </span>
-      </Link>
+      <ThemePill className="mb-4 sm:mb-5" />
 
       <div className="glass-frame relative flex flex-col rounded-[28px] sm:rounded-[36px]">
         {/* Navigation ordinateur (sur mobile : barre d'onglets en bas). */}
@@ -73,7 +59,7 @@ export function Hero() {
                 <a
                   key={item.label}
                   href={item.href}
-                  className="text-[13px] font-medium text-white/70 transition-colors hover:text-white">
+                  className="text-[13px] font-medium text-white/70 transition-colors hover:text-white xl:text-[14px] 2xl:text-[15px]">
                   {item.label}
                 </a>
               ))}
@@ -97,7 +83,7 @@ export function Hero() {
           ))}
         </ul>
 
-        <div className="relative flex flex-col items-center px-4 pb-32 pt-8 sm:px-10 sm:pb-36 sm:pt-12">
+        <div className="relative flex flex-col items-center px-4 pb-32 pt-8 sm:px-10 sm:pb-36 sm:pt-12 xl:pb-44 2xl:pb-52">
           {/* Nom + goutte */}
           <div className="relative mt-4 sm:mt-6">
             {/* Pas d'animation d'apparition ici : c'est le plus gros élément de la page (mesure LCP de Google). */}
@@ -119,28 +105,26 @@ export function Hero() {
           </div>
 
           <p
-            className="rise mt-6 text-center text-[15px] font-medium text-azure/80 sm:mt-7 sm:text-[17px]"
+            className="rise mt-6 text-center text-[15px] font-medium text-azure/80 sm:mt-7 sm:text-[17px] xl:text-[19px] 2xl:text-[21px]"
             style={{ animationDelay: '140ms' }}>
             {SITE.tagline}
           </p>
 
           {/* Carte du thème : le sujet et l'action principale. */}
           <div
-            className="rise glass mt-9 w-full max-w-[640px] rounded-[28px] p-5 sm:mt-10 sm:p-7"
+            className="rise glass mt-9 w-full max-w-[640px] rounded-[28px] p-5 sm:mt-10 sm:p-7 xl:max-w-[760px] xl:rounded-[32px] xl:p-9 2xl:max-w-[860px]"
             style={{ animationDelay: '220ms' }}>
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
-              Sujet de la semaine
-              <span className="normal-case tracking-normal text-white/55">{DEMO_THEME.participants} prises</span>
-            </div>
-            <p className="mt-3 text-[clamp(20px,2.6vw,26px)] font-bold leading-snug tracking-[-0.02em] text-white">
-              « {DEMO_THEME.subject} »
-            </p>
+            <ThemeCardHead />
+            <ThemeSubject
+              className="mt-3 text-[clamp(20px,2.6vw,26px)] font-bold leading-snug tracking-[-0.02em] text-white xl:text-[32px] 2xl:text-[36px]"
+              fallback="Une minute pour convaincre, sur le sujet de ton choix."
+            />
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center xl:mt-8">
               {/* Il faut un compte pour publier : le bouton mène à l'inscription. */}
               <Link
                 href={CREATE_HREF}
-                className="group inline-flex h-14 flex-1 items-center justify-between gap-4 rounded-full bg-accent pl-6 pr-1.5 text-[16px] font-semibold text-white shadow-[0_18px_50px_-14px_var(--color-accent)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98]">
+                className="group inline-flex h-14 w-full shrink-0 items-center justify-between gap-4 rounded-full bg-accent pl-6 pr-1.5 sm:w-auto sm:flex-1 text-[16px] font-semibold xl:h-16 xl:pl-7 xl:text-[18px] text-white shadow-[0_18px_50px_-14px_var(--color-accent)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98]">
                 <span className="flex items-center gap-2.5 whitespace-nowrap">
                   <VoiceWaveIcon size={20} />
                   Prendre la parole
@@ -153,7 +137,7 @@ export function Hero() {
               </Link>
               <Link
                 href="/feed"
-                className="inline-flex h-14 items-center justify-center rounded-full px-6 text-[16px] font-semibold text-white/85 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)] transition-[background-color,color] hover:bg-white/[0.06] hover:text-white">
+                className="inline-flex h-14 items-center justify-center rounded-full px-6 text-[16px] font-semibold text-white/85 xl:h-16 xl:px-8 xl:text-[18px] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)] transition-[background-color,color] hover:bg-white/[0.06] hover:text-white">
                 Écouter les prises
               </Link>
             </div>
@@ -162,9 +146,7 @@ export function Hero() {
       </div>
 
       {/* Meilleures prises du thème : elles chevauchent le bas du cadre. */}
-      <div id="prises" className="relative z-10 -mt-24 scroll-mt-10 sm:-mt-28">
-        <TopTakes takes={DEMO_TAKES} />
-      </div>
+      <HomeTopTakes />
     </section>
   );
 }

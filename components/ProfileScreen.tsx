@@ -10,6 +10,7 @@ import {
   loadProfile,
   loadTiles,
   publishDraft,
+  unreadCount,
   setAvatarEffect,
   type Badge,
   type PostTile,
@@ -18,6 +19,8 @@ import {
 } from '@/app/actions/me';
 import { formatCount } from '@/lib/feed';
 import { notifySessionChange } from '@/lib/use-session';
+import { openInstall, useInstallMode } from '@/lib/pwa';
+import { disablePush } from '@/lib/web-push';
 
 import { UserAvatar } from './AccountNav';
 import { BlobBadge } from './BlobBadge';
@@ -26,6 +29,7 @@ import { BlobBridge } from './BlobBridge';
 import { Sheet } from './feed/Sheet';
 import { PaywallSheet } from './premium/PaywallSheet';
 import {
+  BellIcon,
   BookmarkIcon,
   CheckCircleIcon,
   FlagIcon,
@@ -35,6 +39,7 @@ import {
   LogoutIcon,
   MicIcon,
   PersonIcon,
+  PlusIcon,
   RocketIcon,
   ShieldIcon,
   SparkIcon,
@@ -132,7 +137,7 @@ function CoachCard({ p }: { p: Profile }) {
         <div className="h-full rounded-full bg-gradient-to-r from-accent-strong to-azure" style={{ width: `${ratio * 100}%` }} />
       </div>
       {q.isPremium ? (
-        <Link href="/profil/progression" className="mt-2.5 truncate text-[12px] font-semibold text-azure hover:underline">
+        <Link href="/coach" className="mt-2.5 truncate text-[12px] font-semibold text-azure hover:underline">
           Ma progression →
         </Link>
       ) : (
@@ -200,6 +205,7 @@ function SettingsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const installMode = useInstallMode();
 
   // Fermeture : clic en dehors ou Échap.
   useEffect(() => {
@@ -247,6 +253,19 @@ function SettingsMenu({
           <SparkIcon size={18} className="text-accent" />
           {isPremium ? 'Mon abonnement' : 'Passer Premium'}
         </Link>
+        {installMode !== 'installed' && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              openInstall('settings');
+            }}
+            className={`${item} text-white`}>
+            <PlusIcon size={18} className="text-accent" />
+            Installer l’app
+          </button>
+        )}
         <Link href="/profil/bloques" role="menuitem" onClick={() => setOpen(false)} className={`${item} text-white`}>
           <ShieldIcon size={18} className="text-white/60" />
           Comptes bloqués
@@ -380,6 +399,18 @@ export function ProfileScreen() {
   const [toast, setToast] = useState<string | null>(null);
   const [paywall, setPaywall] = useState<EffectId | null>(null);
   const [logoutAll, setLogoutAll] = useState<{ error: string | null } | null>(null);
+  const [unread, setUnread] = useState(0);
+
+  // Pastille rouge sur la cloche : alertes non lues.
+  useEffect(() => {
+    let cancelled = false;
+    unreadCount()
+      .then((n) => !cancelled && setUnread(n))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [pending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState<{ password: string; confirm: string; error: string | null } | null>(null);
   // Compte email : mot de passe exigé par l'API. Compte Google / Apple : on fait écrire le pseudo.
@@ -450,14 +481,31 @@ export function ProfileScreen() {
         <span className="soft-blob -left-48 -top-48 size-[600px] opacity-60" />
       </div>
 
-      <main className="relative mx-auto flex max-w-lg flex-col gap-7 px-4 pb-40 pt-[max(env(safe-area-inset-top),24px)]">
+      <main className="relative mx-auto flex max-w-lg flex-col gap-7 px-4 pb-40 pt-[max(env(safe-area-inset-top),24px)] lg:max-w-3xl lg:pb-16">
         {/* Paramètres, en haut à droite. */}
+        {/* Alertes : en haut à gauche, à l'opposé des paramètres (l'onglet est devenu Coach IA). */}
+        {profile && (
+          <Link
+            href="/alertes"
+            aria-label={unread > 0 ? `Alertes, ${unread} non lues` : 'Alertes'}
+            className="glass absolute left-4 top-[max(env(safe-area-inset-top),24px)] z-20 grid size-11 place-items-center rounded-full text-white">
+            <BellIcon size={20} />
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FF4D6D] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-canvas">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </Link>
+        )}
+
         {profile && (
           <div className="absolute right-4 top-[max(env(safe-area-inset-top),24px)] z-20">
             <SettingsMenu
               disabled={pending}
               onLogout={() =>
                 startTransition(async () => {
+                  // Plus de notifications d'un compte quitté sur ce navigateur.
+                  await disablePush();
                   await logout();
                   notifySessionChange();
                 })
@@ -599,7 +647,7 @@ export function ProfileScreen() {
               </div>
             )}
             {Array.isArray(list) && list.length > 0 && (
-              <ul className="grid grid-cols-3 gap-2">
+              <ul className="grid grid-cols-3 gap-2 lg:grid-cols-4 lg:gap-3">
                 {list.map((t) => (
                   <li key={t.id}>
                     <Tile tile={t} onOpen={tab === 'drafts' ? () => setDraft(t) : undefined} />
@@ -784,6 +832,7 @@ export function ProfileScreen() {
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
+                await disablePush();
                 const res = await logoutEverywhere();
                 // En cas de succès, la page part vers /connexion (redirection côté serveur).
                 if (res && !res.ok) {
@@ -807,7 +856,7 @@ export function ProfileScreen() {
 
       {profile && !profile.canUseEffects && (
         <PaywallSheet
-          effect={paywall}
+          topic={paywall ? { kind: 'effect', effect: paywall } : null}
           onClose={() => setPaywall(null)}
           face={{ username: profile.username, avatarUrl: profile.avatarUrl || null }}
         />

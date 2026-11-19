@@ -32,6 +32,12 @@ declare global {
 }
 
 const SCRIPT = 'https://accounts.google.com/gsi/client';
+
+/**
+ * Google ne propose pas de bouton plus haut que 40 px (taille « large ») : on l'agrandit en zoom
+ * pour qu'il fasse 56 px, comme les champs et le bouton principal du formulaire.
+ */
+const SCALE = 56 / 40;
 let loading: Promise<void> | null = null;
 
 function loadScript() {
@@ -91,8 +97,9 @@ export function GoogleButton({
           size: 'large',
           shape: 'pill',
           text: mode === 'signup' ? 'signup_with' : 'continue_with',
+          // Largeur avant zoom : une fois agrandi, le bouton occupe toute la largeur du formulaire.
           // Google limite la largeur à 400 px.
-          width: Math.min(400, Math.round(el.offsetWidth)),
+          width: Math.min(400, Math.round((el.parentElement?.offsetWidth ?? el.offsetWidth) / SCALE)),
           locale: 'fr',
           logo_alignment: 'center',
         });
@@ -111,6 +118,14 @@ export function GoogleButton({
     );
   }
 
-  // Hauteur réservée : la page ne saute pas quand le bouton apparaît.
-  return <div ref={ref} className="flex h-11 w-full justify-center [color-scheme:light]" />;
+  // Hauteur réservée (56 px) : la page ne saute pas quand le bouton apparaît.
+  return (
+    <div className="flex h-14 w-full items-center justify-center">
+      <div
+        ref={ref}
+        className="flex w-max justify-center [color-scheme:light]"
+        style={{ transform: `scale(${SCALE})`, transformOrigin: 'center' }}
+      />
+    </div>
+  );
 }

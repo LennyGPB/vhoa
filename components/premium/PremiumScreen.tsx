@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { loadOffer, type Offer } from '@/app/actions/billing';
@@ -11,9 +12,9 @@ import { UserAvatar } from '../AccountNav';
 import { AvatarEffect, EFFECTS, type EffectId } from '../AvatarEffect';
 import { BlobBadge } from '../BlobBadge';
 import { BlobBridge } from '../BlobBridge';
-import { CheckIcon, FlameIcon, SparkIcon, StepsIcon } from '../icons';
+import { BackIcon, CheckIcon, FlameIcon, SparkIcon, StepsIcon } from '../icons';
 import { LiquidBlob } from '../LiquidBlob';
-import { Checkout } from './Checkout';
+import { isReady, OfferPending, PayFooter, PlanPicker, useCheckout } from './Checkout';
 import { euros, PREMIUM_ANALYSES } from './shared';
 
 /** Carte d'avantage : fond plein #16171b, comme le pont liquide qui la relie aux autres. */
@@ -74,14 +75,29 @@ export function PremiumScreen() {
     loadProfile().then((res) => res.ok && setIsPremium(res.data.isPremium));
   }, [user]);
 
+  const checkout = useCheckout();
+  const router = useRouter();
+  const ready = isReady(offer);
   const face = { username: user?.username ?? 'V', avatarUrl: user?.avatarUrl ?? null };
   const launch = offer && offer !== 'error' && offer.enabled ? offer.launch : null;
 
   return (
     <div className="relative min-h-svh overflow-x-clip bg-canvas">
-      <main className="relative mx-auto flex max-w-lg flex-col gap-8 px-4 pb-44 pt-[max(env(safe-area-inset-top),28px)]">
+      {/* Retour : la page n'a pas de barre d'onglets (le bouton d'achat occupe le bas de l'écran). */}
+      <button
+        type="button"
+        onClick={() => (window.history.length > 1 ? router.back() : router.push('/feed'))}
+        aria-label="Retour"
+        className="glass fixed left-4 top-[max(env(safe-area-inset-top),16px)] z-30 grid size-11 place-items-center rounded-full text-white">
+        <BackIcon size={20} />
+      </button>
+
+      <main
+        className={`relative mx-auto flex max-w-lg flex-col gap-8 px-4 pt-[max(env(safe-area-inset-top),28px)] lg:grid lg:max-w-5xl lg:grid-cols-[1.1fr_1fr] lg:items-start lg:gap-x-12 ${
+          isPremium ? 'pb-16' : 'pb-[calc(env(safe-area-inset-bottom)+150px)]'
+        }`}>
         {/* En-tête : la photo du membre avec l'effet Aura, sur une goutte liquide. */}
-        <header className="relative flex flex-col items-center pt-10 text-center">
+        <header className="relative flex flex-col items-center pt-10 text-center lg:col-span-2">
           <div className="relative isolate grid place-items-center">
             <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 w-[240px] -translate-x-1/2 -translate-y-1/2 opacity-60">
               <LiquidBlob className="h-auto w-full" speed={0.25} seed={3} glow={false} />
@@ -165,24 +181,43 @@ export function PremiumScreen() {
           </Card>
         </section>
 
-        {/* Formules */}
-        {isPremium ? (
-          <section className="glass-frame flex flex-col items-center rounded-[28px] px-6 py-8 text-center">
-            <span className="grid size-12 place-items-center rounded-full bg-accent text-white">
-              <CheckIcon size={22} />
-            </span>
-            <h2 className="mt-4 text-[22px] font-bold">Tu es Premium</h2>
-            <p className="mt-1.5 text-[15px] text-white/55">Merci de soutenir VHOA !</p>
-            <Link
-              href="/profil/abonnement"
-              className="mt-6 inline-flex h-12 items-center rounded-full bg-white/[0.08] px-6 text-[15px] font-semibold transition-colors hover:bg-white/[0.12]">
-              Gérer mon abonnement
-            </Link>
-          </section>
-        ) : (
-          <Checkout offer={offer} signedIn={!!user} />
-        )}
+        {/* Formules (sur grand écran : colonne de droite, qui reste visible au défilement). */}
+        <div className="lg:sticky lg:top-10">
+          {isPremium ? (
+            <section className="glass-frame flex flex-col items-center rounded-[28px] px-6 py-8 text-center">
+              <span className="grid size-12 place-items-center rounded-full bg-accent text-white">
+                <CheckIcon size={22} />
+              </span>
+              <h2 className="mt-4 text-[22px] font-bold">Tu es Premium</h2>
+              <p className="mt-1.5 text-[15px] text-white/55">Merci de soutenir VHOA !</p>
+              <Link
+                href="/profil/abonnement"
+                className="mt-6 inline-flex h-12 items-center rounded-full bg-white/[0.08] px-6 text-[15px] font-semibold transition-colors hover:bg-white/[0.12]">
+                Gérer mon abonnement
+              </Link>
+            </section>
+          ) : ready ? (
+            <section aria-label="Choisir une formule" className="flex flex-col gap-3">
+              <PlanPicker offer={offer} state={checkout} />
+              <p className="px-2 text-center text-[12px] leading-relaxed text-white/40">
+                Sans engagement, résiliable à tout moment depuis ton profil. Renouvellement automatique, prix TTC. Paiement
+                sécurisé par Stripe : VHOA ne voit jamais ta carte.
+              </p>
+            </section>
+          ) : (
+            <OfferPending offer={offer} />
+          )}
+        </div>
       </main>
+
+      {/* Bouton d'achat fixé en bas de l'écran, toujours visible. */}
+      {!isPremium && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.06] bg-[#0a0a0b]/85 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-3 backdrop-blur-xl">
+          <div className="mx-auto max-w-lg">
+            <PayFooter state={checkout} signedIn={!!user} cta="Passer Premium" next="/premium" disabled={!ready} compact />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

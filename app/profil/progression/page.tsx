@@ -1,19 +1,6 @@
-import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-import { ProgressScreen } from '@/components/ProgressScreen';
-import { TabBar } from '@/components/TabBar';
-
-export const metadata: Metadata = {
-  title: 'Ma progression',
-  robots: { index: false },
-};
-
-/** Réservée aux membres (proxy.ts) ; courbes et historique réservés à Premium (API). */
+/** Ancienne adresse de « Ma progression » : tout est maintenant dans l'onglet Coach IA. */
 export default function ProgressionPage() {
-  return (
-    <>
-      <ProgressScreen />
-      <TabBar />
-    </>
-  );
+  redirect('/coach');
 }

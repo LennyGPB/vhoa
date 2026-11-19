@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState, useSyncExternalStore, useTransition, type FormEvent } from 'react';
 
 import { googleSignIn, login, register, type AuthResult } from '@/app/actions/auth';
+import { markSignupInstall } from '@/lib/pwa';
 import { notifySessionChange } from '@/lib/use-session';
 
 import { Sheet } from './feed/Sheet';
@@ -18,7 +19,7 @@ const PASSWORD_RE = /^(?=.*\p{L})(?=.*\d).{8,128}$/u;
 
 /** Où aller une fois connecté : la page demandée (?next=…) si elle est connue, sinon le feed. */
 const AFTER_AUTH = '/feed';
-const NEXT_ALLOWED = new Set(['/creer', '/creer?coach=1', '/feed', '/profil', '/premium']);
+const NEXT_ALLOWED = new Set(['/creer', '/creer?coach=1', '/coach', '/feed', '/profil', '/premium']);
 const noop = () => () => {};
 
 function readNext() {
@@ -49,6 +50,8 @@ export function AuthForm({ mode, googleClientId }: { mode: Mode; googleClientId?
     (res: AuthResult, pending?: Pending) => {
       if (res.ok) {
         notifySessionChange();
+        // Compte tout neuf : on proposera d'installer l'app sur la page d'arrivée.
+        if (mode === 'signup' || res.isNewUser) markSignupInstall();
         router.replace(next ?? AFTER_AUTH);
         router.refresh();
         return;
@@ -60,7 +63,7 @@ export function AuthForm({ mode, googleClientId }: { mode: Mode; googleClientId?
       }
       setError(res.message);
     },
-    [router, next],
+    [router, next, mode],
   );
 
   const onGoogle = useCallback(

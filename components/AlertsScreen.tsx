@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 
@@ -16,6 +17,7 @@ import { notifySessionChange } from '@/lib/use-session';
 
 import { UserAvatar } from './AccountNav';
 import {
+  BackIcon,
   BellIcon,
   CheckCircleIcon,
   CommentIcon,
@@ -28,6 +30,7 @@ import {
   TrophyIcon,
 } from './icons';
 import { LiquidTabs } from './LiquidTabs';
+import { PushCard } from './PushCard';
 
 const GROUPS: { key: NotificationGroup; label: string }[] = [
   { key: 'all', label: 'Tout' },
@@ -260,9 +263,13 @@ export function AlertsScreen() {
         <span className="soft-blob -right-48 -top-48 size-[560px] opacity-50" />
       </div>
 
-      <main className="relative mx-auto flex max-w-lg flex-col gap-5 px-4 pb-40 pt-[max(env(safe-area-inset-top),20px)]">
-        <header className="flex items-center justify-between px-1">
-          <h1 className="text-[30px] font-bold tracking-[-0.03em]">Alertes</h1>
+      <main className="relative mx-auto flex max-w-lg flex-col gap-5 px-4 pb-40 pt-[max(env(safe-area-inset-top),20px)] lg:max-w-2xl lg:pb-16">
+        <header className="flex items-center gap-3 px-1">
+          {/* Les alertes s'ouvrent depuis le profil : retour au profil. */}
+          <Link href="/profil" aria-label="Retour au profil" className="glass grid size-11 shrink-0 place-items-center rounded-full text-white">
+            <BackIcon size={20} />
+          </Link>
+          <h1 className="flex-1 text-[30px] font-bold tracking-[-0.03em]">Alertes</h1>
           <button
             type="button"
             onClick={readAll}
@@ -272,6 +279,9 @@ export function AlertsScreen() {
             Tout lire
           </button>
         </header>
+
+        {/* Notifications de ce navigateur (Web Push). */}
+        <PushCard />
 
         <LiquidTabs label="Filtrer les alertes" tabs={GROUPS} value={group} onChange={setGroup} />
 

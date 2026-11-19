@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ComponentType } from 'react';
 
-import { unreadCount } from '@/app/actions/me';
+import { loadCoachQuota } from '@/app/actions/coach';
 import { animateWhileVisible } from '@/lib/blob';
-import { CREATE_HREF, SIGNUP_HREF } from '@/lib/site';
+import { CREATE_HREF } from '@/lib/site';
 import { useSessionUser } from '@/lib/use-session';
 
-import { BellIcon, CompassIcon, PersonIcon, PlayCircleIcon, PlusIcon } from './icons';
+import { CompassIcon, PersonIcon, PlayCircleIcon, PlusIcon, SparkIcon, TrophyIcon } from './icons';
+import { Logo } from './Logo';
+import { PaywallSheet } from './premium/PaywallSheet';
 
 /* Mêmes mesures que la GlassTabBar de l'app. */
 const BAR_HEIGHT = 62;
@@ -30,19 +32,35 @@ interface Tab {
   /** Onglet actif sur cette page. */
   match?: (pathname: string) => boolean;
   featured?: boolean;
+  /** Onglet Coach IA : la fenêtre Premium s'ouvre pour qui n'est pas Premium. */
+  coach?: boolean;
+}
+
+/** L'étincelle du coach (pas de version « pleine » : `filled` est ignoré). */
+function CoachTabIcon({ size }: { size?: number; filled?: boolean }) {
+  return <SparkIcon size={size} />;
 }
 
 /**
  * Mêmes onglets que l'app. Ce qui demande un compte mène à l'inscription pour un visiteur.
- * Une fois connecté, Alertes et Profil mènent aux pages du membre.
+ * Les alertes sont dans le profil (cloche en haut à gauche) ; leur place est prise par le coach.
  */
 const TABS: Tab[] = [
   { label: 'Explorer', href: '/', Icon: CompassIcon, match: (p) => p === '/' },
   { label: 'Feed', href: '/feed', Icon: PlayCircleIcon, match: (p) => p.startsWith('/feed') },
   { label: 'Créer', href: CREATE_HREF, featured: true, match: (p) => p === '/creer' },
-  { label: 'Alertes', href: SIGNUP_HREF, memberHref: '/alertes', Icon: BellIcon, match: (p) => p === '/alertes' },
-  { label: 'Profil', href: '/connexion', memberHref: '/profil', Icon: PersonIcon, match: (p) => p === '/profil' },
+  { label: 'Coach IA', href: '/coach', Icon: CoachTabIcon, coach: true, match: (p) => p === '/coach' },
+  {
+    label: 'Profil',
+    href: '/connexion',
+    memberHref: '/profil',
+    Icon: PersonIcon,
+    match: (p) => p === '/profil' || p === '/alertes',
+  },
 ];
+
+/** Statut Premium partagé entre les pages (la barre est remontée à chaque page), relu après 60 s. */
+let premiumCache: { value: boolean; at: number } | null = null;
 
 /** Contour de la barre : rectangle arrondi avec une bosse douce au centre (tracé de l'app). */
 function barPath(w: number) {
@@ -134,21 +152,25 @@ export function TabBar() {
   const member = useSessionUser() !== null;
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [unread, setUnread] = useState(0);
+  // Statut Premium (onglet Coach IA) : null tant qu'il n'est pas connu.
+  const [premium, setPremium] = useState<boolean | null>(premiumCache?.value ?? null);
+  const [paywall, setPaywall] = useState(false);
 
-  // Point rouge sur Alertes : nombre de non lues, relu à chaque page (sauf sur Alertes même).
-  const onAlerts = pathname === '/alertes';
   useEffect(() => {
-    if (!member || onAlerts) return;
+    if (!member) return;
+    if (premiumCache && Date.now() - premiumCache.at < 60_000) return;
     let cancelled = false;
-    unreadCount()
-      .then((n) => !cancelled && setUnread(n))
+    loadCoachQuota()
+      .then((res) => {
+        if (!res.ok || cancelled) return;
+        premiumCache = { value: res.data.isPremium, at: Date.now() };
+        setPremium(res.data.isPremium);
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [member, onAlerts, pathname]);
-  const showDot = member && !onAlerts && unread > 0;
+  }, [member]);
 
   useEffect(() => {
     const el = ref.current;
@@ -162,7 +184,17 @@ export function TabBar() {
   const itemWidth = width / TABS.length;
   const path = width > 0 ? barPath(width) : '';
 
+  // Onglet Coach IA : pas Premium (ou visiteur) → fenêtre Premium plutôt que la page du coach.
+  // Statut pas encore connu : la page du coach s'en charge.
+  const onCoach = (e: React.MouseEvent) => {
+    if (member && premium !== false) return;
+    e.preventDefault();
+    setPaywall(true);
+  };
+
   return (
+    <>
+    <DesktopNav pathname={pathname} member={member} onCoach={onCoach} />
     <nav
       aria-label="Navigation"
       className="fixed inset-x-0 z-40 px-4 md:hidden"
@@ -203,7 +235,7 @@ export function TabBar() {
                 <Link
                   href={member && tab.memberHref ? tab.memberHref : tab.href}
                   aria-current={active ? 'page' : undefined}
-                  aria-label={tab.label === 'Alertes' && showDot ? `Alertes, ${unread} non lues` : undefined}
+                  onClick={tab.coach ? onCoach : undefined}
                   className={`group flex h-full flex-col items-center justify-end gap-[3px] pb-[11px] text-[10px] ${
                     active ? 'font-semibold text-white' : 'font-medium text-white/50'
                   }`}>
@@ -211,11 +243,8 @@ export function TabBar() {
                     <CreateBlob />
                   ) : (
                     tab.Icon && (
-                      <span className="relative">
+                      <span className={`relative ${tab.coach ? 'text-accent' : ''}`}>
                         <tab.Icon size={22} filled={active} />
-                        {tab.label === 'Alertes' && showDot && (
-                          <span className="absolute -right-1 -top-0.5 size-[9px] rounded-full bg-[#FF4D6D] ring-[1.5px] ring-[#1A1A1C]" />
-                        )}
                       </span>
                     )
                   )}
@@ -226,6 +255,80 @@ export function TabBar() {
           })}
         </ul>
       </div>
+
+    </nav>
+    <PaywallSheet topic={paywall ? { kind: 'coach' } : null} onClose={() => setPaywall(false)} signedIn={member} />
+    </>
+  );
+}
+
+/** Onglets du rail ordinateur : ceux de la barre mobile, plus les Défis (la place ne manque pas). */
+const DESKTOP_TABS: (Tab & { Icon: ComponentType<{ size?: number; filled?: boolean }> })[] = [
+  { label: 'Explorer', href: '/', Icon: CompassIcon, match: (p) => p === '/' },
+  { label: 'Feed', href: '/feed', Icon: PlayCircleIcon, match: (p) => p.startsWith('/feed') || p.startsWith('/p/') },
+  { label: 'Défis', href: '/defis', Icon: TrophyTabIcon, match: (p) => p.startsWith('/defis') },
+  { label: 'Créer', href: CREATE_HREF, Icon: PlusTabIcon, featured: true, match: (p) => p === '/creer' },
+  { label: 'Coach IA', href: '/coach', Icon: CoachTabIcon, coach: true, match: (p) => p === '/coach' },
+  {
+    label: 'Profil',
+    href: '/connexion',
+    memberHref: '/profil',
+    Icon: PersonIcon,
+    match: (p) => p === '/profil' || p.startsWith('/profil/') || p === '/alertes',
+  },
+];
+
+function TrophyTabIcon({ size }: { size?: number; filled?: boolean }) {
+  return <TrophyIcon size={size} />;
+}
+function PlusTabIcon({ size }: { size?: number; filled?: boolean }) {
+  return <PlusIcon size={size} />;
+}
+
+/**
+ * Navigation ordinateur (à partir de 768 px) : rail vertical en verre, fixé à gauche, logo en haut.
+ * Absent de l'accueil, qui a son propre menu en haut de page.
+ */
+function DesktopNav({ pathname, member, onCoach }: { pathname: string; member: boolean; onCoach: (e: React.MouseEvent) => void }) {
+  if (pathname === '/') return null;
+  return (
+    <nav
+      aria-label="Navigation principale"
+      className="glass fixed left-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-1 rounded-[28px] px-2 py-4 md:flex">
+      <Link href="/" aria-label="VHOA, accueil" className="mb-3 grid size-11 place-items-center transition-opacity hover:opacity-80">
+        <Logo height={26} />
+      </Link>
+      {DESKTOP_TABS.map((tab) => {
+        const active = tab.match?.(pathname) ?? false;
+        return (
+          <Link
+            key={tab.label}
+            href={member && tab.memberHref ? tab.memberHref : tab.href}
+            aria-current={active ? 'page' : undefined}
+            onClick={tab.coach ? onCoach : undefined}
+            className={`group flex w-[72px] flex-col items-center gap-1 rounded-2xl py-2.5 text-[11px] transition-colors ${
+              tab.featured
+                ? 'text-white'
+                : active
+                  ? 'bg-accent/15 font-semibold text-white'
+                  : 'font-medium text-white/55 hover:bg-white/[0.06] hover:text-white'
+            }`}>
+            <span
+              className={`grid place-items-center ${
+                tab.featured
+                  ? 'size-10 rounded-full bg-accent text-white shadow-[0_8px_24px_-8px_var(--color-accent)] transition-transform group-hover:scale-105'
+                  : tab.coach
+                    ? 'text-accent'
+                    : active
+                      ? 'text-accent'
+                      : ''
+              }`}>
+              <tab.Icon size={tab.featured ? 22 : 22} filled={active} />
+            </span>
+            {tab.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

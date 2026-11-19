@@ -1,11 +1,10 @@
 import Link from 'next/link';
 
-import { DEMO_THEME } from '@/lib/demo';
 import { CREATE_HREF } from '@/lib/site';
 
 import { ArrowIcon, VoiceWaveIcon } from './icons';
 import { LiquidBlob } from './LiquidBlob';
-import { ThemeCountdown } from './ThemeCountdown';
+import { ThemeEndPill, ThemeSubject } from './HomeTheme';
 
 /** Dernier appel : le sujet de la semaine, le temps restant et le bouton pour prendre la parole. */
 export function FinalCta() {
@@ -16,30 +15,22 @@ export function FinalCta() {
         <LiquidBlob className="h-auto w-full" speed={0.25} seed={9} glow={false} />
       </div>
 
-      <div className="glass-frame mx-auto flex max-w-5xl flex-col items-center rounded-[28px] px-6 py-16 text-center sm:rounded-[36px] sm:px-12 sm:py-24">
-        <p className="glass inline-flex items-center gap-2.5 rounded-full px-4 py-2.5 text-[13px] font-semibold text-white/85">
-          <span aria-hidden className="relative flex size-2">
-            <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-70 motion-reduce:hidden" />
-            <span className="relative size-2 rounded-full bg-accent" />
-          </span>
-          Le thème se termine
-          <span className="text-azure">
-            <ThemeCountdown />
-          </span>
-        </p>
+      <div className="glass-frame mx-auto flex max-w-5xl flex-col items-center rounded-[28px] px-6 py-16 text-center sm:rounded-[36px] sm:px-12 sm:py-24 2xl:max-w-6xl 2xl:py-32">
+        <ThemeEndPill />
 
-        <h2 className="mt-8 text-balance text-[clamp(36px,6vw,72px)] font-bold leading-[1.02] tracking-[-0.04em]">
+        <h2 className="text-balance text-[clamp(36px,6vw,72px)] font-bold 2xl:text-[88px] leading-[1.02] tracking-[-0.04em]">
           À toi de prendre
           <br />
           la parole.
         </h2>
-        <p className="mt-6 max-w-xl text-balance text-[clamp(17px,2vw,20px)] font-semibold leading-snug text-white/70">
-          « {DEMO_THEME.subject} »
-        </p>
+        <ThemeSubject
+          className="mt-6 max-w-xl text-balance text-[clamp(17px,2vw,20px)] font-semibold leading-snug text-white/70 2xl:max-w-2xl 2xl:text-[23px]"
+          fallback="Une minute, un sujet, et la communauté qui tranche."
+        />
 
         <Link
           href={CREATE_HREF}
-          className="group mt-10 inline-flex h-16 w-full items-center justify-between gap-5 rounded-full bg-accent pl-7 pr-2 text-[17px] font-semibold text-white shadow-[0_18px_50px_-14px_var(--color-accent)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] sm:w-auto">
+          className="group mt-10 inline-flex h-16 w-full items-center justify-between gap-5 rounded-full bg-accent pl-7 pr-2 text-[17px] font-semibold 2xl:h-[72px] 2xl:pl-9 2xl:text-[19px] text-white shadow-[0_18px_50px_-14px_var(--color-accent)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] sm:w-auto">
           <span className="flex items-center gap-2.5 whitespace-nowrap">
             <VoiceWaveIcon size={20} />
             Prendre la parole

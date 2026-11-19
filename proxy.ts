@@ -20,7 +20,7 @@ export function proxy(request: NextRequest) {
   if (member && (pathname === '/inscription' || pathname === '/connexion')) {
     return NextResponse.redirect(new URL('/feed', request.url));
   }
-  if (!member && (pathname === '/profil' || pathname.startsWith('/profil/') || pathname === '/premium/merci' || pathname === '/alertes' || pathname.startsWith('/analyse/'))) {
+  if (!member && (pathname === '/profil' || pathname.startsWith('/profil/') || pathname === '/coach' || pathname === '/premium/merci' || pathname === '/alertes' || pathname.startsWith('/analyse/'))) {
     return NextResponse.redirect(new URL('/connexion', request.url));
   }
   // Prendre la parole demande un compte : inscription d'abord, puis retour sur Créer.

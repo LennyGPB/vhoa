@@ -166,26 +166,52 @@ export function DefisScreen() {
   const [current, setCurrent] = useState<{ weekly: Theme | null; monthly: Theme | null } | null>(null);
   const [ranking, setRanking] = useState<FeedPost[] | null>(null);
   const [podiums, setPodiums] = useState<Podium[] | null>(null);
+  // Panne réseau ou API : message d'erreur et « Réessayer », plutôt qu'une page « vide ».
+  const [failed, setFailed] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     loadCurrentThemes().then((res) => {
-      const data = res.ok ? res.data : { weekly: null, monthly: null };
-      setCurrent(data);
-      if (data.weekly) loadThemePosts(data.weekly.id).then((r) => setRanking(r.ok ? r.data : []));
+      if (!res.ok) {
+        setFailed(true);
+        return;
+      }
+      setCurrent(res.data);
+      if (res.data.weekly) loadThemePosts(res.data.weekly.id).then((r) => setRanking(r.ok ? r.data : []));
       else setRanking([]);
     });
     loadRecentThemes().then((res) => setPodiums(res.ok ? res.data : []));
-  }, []);
+  }, [reload]);
+
+  const retry = () => {
+    setFailed(false);
+    setCurrent(null);
+    setRanking(null);
+    setPodiums(null);
+    setReload((r) => r + 1);
+  };
 
   return (
     <div className="relative min-h-svh overflow-x-clip bg-canvas">
-      <main className="relative mx-auto flex max-w-lg flex-col gap-8 px-4 pb-40 pt-[max(env(safe-area-inset-top),24px)]">
+      <main className="relative mx-auto flex max-w-lg flex-col gap-8 px-4 pb-40 pt-[max(env(safe-area-inset-top),24px)] lg:max-w-3xl lg:pb-16">
         <header className="relative z-10 px-1">
           <h1 className="text-[32px] font-bold tracking-[-0.03em]">Défis</h1>
           <p className="mt-1 text-[15px] text-white/55">Un sujet, une minute, et la communauté tranche.</p>
         </header>
 
-        {current === null && <span className="h-[300px] animate-pulse rounded-[32px] bg-white/[0.04]" />}
+        {failed && (
+          <div role="alert" className="glass-frame rounded-[32px] px-6 py-8 text-center">
+            <h2 className="text-[22px] font-bold">Impossible de charger les défis</h2>
+            <p className="mt-2 text-[15px] text-white/60">Vérifie ta connexion, puis réessaie.</p>
+            <button
+              type="button"
+              onClick={retry}
+              className="mt-5 inline-flex h-12 items-center rounded-full bg-accent px-6 text-[15px] font-semibold text-white transition-[filter] hover:brightness-110">
+              Réessayer
+            </button>
+          </div>
+        )}
+        {!failed && current === null && <span className="h-[300px] animate-pulse rounded-[32px] bg-white/[0.04]" />}
         {current?.weekly && <CurrentChallenge theme={current.weekly} />}
         {current && !current.weekly && (
           <div className="glass-frame rounded-[32px] px-6 py-8 text-center">

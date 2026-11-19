@@ -15,8 +15,7 @@ const FILL = '#16171b';
  * large contre chaque carte, il se resserre au milieu comme deux gouttes qui fusionnent.
  * `k` = largeur rentrée de chaque côté au niveau du col.
  */
-function bridgePath(k: number, s = SPAN) {
-  const g = GAP;
+function bridgePath(k: number, s = SPAN, g = GAP) {
   const m = g / 2;
   // Chaque flanc part tangent au bord de la carte, plonge vers le col, puis repart.
   return [
@@ -35,12 +34,18 @@ export function BlobBridge({
   orientation,
   phase = 0,
   span = SPAN,
+  gap = GAP,
+  fill = FILL,
 }: {
   orientation: 'horizontal' | 'vertical';
   /** Décalage pour que plusieurs ponts ne respirent pas en même temps. */
   phase?: number;
   /** Longueur de contact avec chaque carte (200 par défaut) ; le col suit la même proportion. */
   span?: number;
+  /** Largeur de l'espace franchi (40 par défaut). */
+  gap?: number;
+  /** Couleur des cartes reliées (#16171b par défaut, celle de .glass-solid). */
+  fill?: string;
 }) {
   const scale = span / SPAN;
   const pathRef = useRef<SVGPathElement>(null);
@@ -50,22 +55,22 @@ export function BlobBridge({
     if (!path) return;
     // Col entre 44 et 64 : resserré puis relâché, sur ~5 s.
     return animateWhileVisible(path, 1, (t) =>
-      path.setAttribute('d', bridgePath((54 + 10 * Math.sin(t * 1.3 + phase)) * scale, span)),
+      path.setAttribute('d', bridgePath((54 + 10 * Math.sin(t * 1.3 + phase)) * scale, span, gap)),
     );
-  }, [phase, scale, span]);
+  }, [phase, scale, span, gap]);
 
   const vertical = orientation === 'vertical';
 
   return (
     <svg
       aria-hidden="true"
-      width={vertical ? span : GAP}
-      height={vertical ? GAP : span}
-      viewBox={vertical ? `0 0 ${span} ${GAP}` : `0 0 ${GAP} ${span}`}
+      width={vertical ? span : gap}
+      height={vertical ? gap : span}
+      viewBox={vertical ? `0 0 ${span} ${gap}` : `0 0 ${gap} ${span}`}
       className="block">
       {/* Version verticale : on bascule le tracé horizontal sur sa diagonale. */}
       <g transform={vertical ? 'matrix(0 1 1 0 0 0)' : undefined}>
-        <path ref={pathRef} d={bridgePath((54 + 10 * Math.sin(phase)) * scale, span)} fill={FILL} />
+        <path ref={pathRef} d={bridgePath((54 + 10 * Math.sin(phase)) * scale, span, gap)} fill={fill} />
       </g>
     </svg>
   );

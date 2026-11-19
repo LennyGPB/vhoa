@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { Fragment, useEffect, useRef } from 'react';
 
-import type { DemoTake } from '@/lib/demo';
+import type { HomeTake } from '@/app/actions/public';
 
 import { BlobBridge } from './BlobBridge';
 import { HeartCheckIcon } from './icons';
@@ -54,18 +55,21 @@ function snapStops(scroller: HTMLElement) {
   );
 }
 
-function TakeCard({ take, rank }: { take: DemoTake; rank: number }) {
+function TakeCard({ take, rank }: { take: HomeTake; rank: number }) {
   return (
-    <article className="glass-solid flex h-[300px] w-[210px] shrink-0 flex-col justify-between rounded-[26px] p-4">
+    <Link
+      href={`/p/${take.id}`}
+      aria-label={`Prise n° ${rank} de @${take.username}`}
+      className="glass-solid flex h-[300px] w-[210px] shrink-0 flex-col justify-between rounded-[26px] p-4 transition-[filter] hover:brightness-125 xl:h-[340px] xl:w-[260px] xl:rounded-[30px] xl:p-5 2xl:h-[380px] 2xl:w-[300px] 2xl:p-6">
       {/* Pas de contour sur la carte : le pont doit s'y fondre sans ligne de raccord. */}
-      <div className="flex items-center justify-between text-[11px] font-semibold">
+      <div className="flex items-center justify-between text-[11px] font-semibold xl:text-[12.5px]">
         <span className="rounded-full bg-accent/15 px-2.5 py-1 text-accent">#{rank}</span>
         <span className="text-white/45">
           {take.category} · {duration(take.duration)}
         </span>
       </div>
 
-      <p className="text-[15px] font-semibold leading-snug text-white/90">« {take.excerpt} »</p>
+      <p className="text-[15px] font-semibold leading-snug text-white/90 xl:text-[18px] 2xl:text-[20px]">« {take.excerpt} »</p>
 
       <div className="flex flex-col gap-3">
         <div aria-hidden className="flex h-6 items-center gap-[3px]">
@@ -79,16 +83,21 @@ function TakeCard({ take, rank }: { take: DemoTake; rank: number }) {
         </div>
         <div className="flex items-center justify-between">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="size-7 shrink-0 rounded-full ring-2 ring-white/10" style={{ background: take.color }} />
-            <span className="truncate text-[13px] font-semibold text-white/85">{take.author}</span>
+            {take.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- image distante (R2), taille fixe
+              <img src={take.avatarUrl} alt="" className="size-7 shrink-0 rounded-full object-cover ring-2 ring-white/10" />
+            ) : (
+              <span className="size-7 shrink-0 rounded-full ring-2 ring-white/10" style={{ background: take.color }} />
+            )}
+            <span className="truncate text-[13px] font-semibold text-white/85 xl:text-[15px]">@{take.username}</span>
           </span>
-          <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-azure">
+          <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-azure xl:text-[14px]">
             <HeartCheckIcon size={13} />
             {take.convinced}
           </span>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
@@ -97,7 +106,7 @@ function TakeCard({ take, rank }: { take: DemoTake; rank: number }) {
  * Sur mobile : carrousel (une carte centrée, les voisines dépassent) avec un indicateur en goutte.
  * Sur ordinateur : les trois côte à côte.
  */
-export function TopTakes({ takes }: { takes: DemoTake[] }) {
+export function TopTakes({ takes }: { takes: HomeTake[] }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<SVGPathElement>(null);
   const shown = takes.slice(0, 3);

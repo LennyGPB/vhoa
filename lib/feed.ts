@@ -1,5 +1,5 @@
 /**
- * Feed : types (même forme que le FeedPost de l'app) et données fictives en attendant l'API.
+ * Feed : types (même forme que le FeedPost de l'app) et conversion des réponses de l'API.
  * Sans fichier média, la lecture est simulée (chrono, sous-titres, onde) sur la durée du post.
  */
 
@@ -41,8 +41,6 @@ export interface FeedPost {
   convinced: number;
   /** État propre au membre connecté (tout à false pour un visiteur). */
   viewer: ViewerState;
-  /** Post fictif (démo) : les actions restent locales, rien n'est envoyé à l'API. */
-  demo?: boolean;
 }
 
 export interface ViewerState {
@@ -64,133 +62,6 @@ export interface FeedComment {
   isLiked?: boolean;
 }
 
-const THEME = {
-  period: 'weekly' as const,
-  subject: 'Les réseaux sociaux nous rendent-ils plus seuls ?',
-  phase: 'open' as const,
-};
-
-/** Découpe un texte en sous-titres réguliers sur la durée du post. */
-function cues(duration: number, lines: string[]): TranscriptCue[] {
-  const step = duration / lines.length;
-  return lines.map((text, i) => ({ start: i * step, end: (i + 1) * step, text }));
-}
-
-const DEMO_POSTS: Omit<FeedPost, 'viewer' | 'demo'>[] = [
-  {
-    id: 'p1',
-    type: 'video',
-    author: { id: 'u1', username: 'ines.parle', color: '#7CC4FA' },
-    title: 'Connectés… mais seuls dans une pièce pleine',
-    category: 'Débat',
-    hashtags: ['#solitude', '#réseaux'],
-    duration: 58,
-    transcript: cues(58, [
-      'On n’a jamais été aussi connectés.',
-      'Et pourtant, regardez autour de vous.',
-      'Une table, quatre amis, quatre écrans.',
-      'Le problème n’est pas le lien.',
-      'C’est ce qu’on fait de notre attention.',
-      'Posez le téléphone. Juste une heure.',
-    ]),
-    theme: THEME,
-    likes: 1840,
-    comments: 96,
-    shares: 41,
-    saves: 120,
-    convinced: 342,
-  },
-  {
-    id: 'p2',
-    type: 'audio',
-    author: { id: 'u2', username: 'yanisk', color: '#4AA8FF' },
-    title: 'Ce n’est pas l’écran le problème',
-    category: 'Discours',
-    hashtags: ['#éloquence'],
-    duration: 60,
-    transcript: cues(60, [
-      'Le problème, ce n’est pas l’écran.',
-      'C’est ce qu’on arrête de se dire en face.',
-      'Un message, ça s’efface.',
-      'Un regard, ça reste.',
-      'Alors la prochaine fois,',
-      'dites-le de vive voix.',
-    ]),
-    theme: THEME,
-    likes: 1290,
-    comments: 58,
-    shares: 22,
-    saves: 74,
-    convinced: 287,
-  },
-  {
-    id: 'p3',
-    type: 'video',
-    author: { id: 'u3', username: 'cam.d', color: '#2F8FE8' },
-    title: 'Ma grand-mère et Instagram',
-    category: 'Storytelling',
-    hashtags: ['#famille', '#histoire'],
-    duration: 47,
-    transcript: cues(47, [
-      'Ma grand-mère a 82 ans.',
-      'Pendant trente ans, elle a cherché sa sœur.',
-      'C’est sur Instagram qu’elle l’a retrouvée.',
-      'Alors non, les réseaux ne nous isolent pas.',
-      'Ils nous retrouvent.',
-    ]),
-    theme: THEME,
-    likes: 2310,
-    comments: 132,
-    shares: 88,
-    saves: 205,
-    convinced: 251,
-  },
-  {
-    id: 'p4',
-    type: 'audio',
-    author: { id: 'u4', username: 'maitre.sam', color: '#7CC4FA' },
-    title: 'Plaidoirie pour le droit à l’ennui',
-    category: 'Plaidoirie',
-    hashtags: ['#plaidoirie', '#ennui'],
-    duration: 54,
-    transcript: cues(54, [
-      'Mesdames et messieurs les jurés,',
-      'je viens défendre un accusé oublié :',
-      'l’ennui.',
-      'C’est lui qui a inventé nos plus belles idées.',
-      'Rendez-lui sa place.',
-    ]),
-    likes: 640,
-    comments: 27,
-    shares: 9,
-    saves: 33,
-    convinced: 0,
-  },
-  {
-    id: 'p5',
-    type: 'video',
-    author: { id: 'u5', username: 'nora.pitch', color: '#4AA8FF' },
-    title: '60 secondes pour vendre un stylo',
-    category: 'Pitch',
-    hashtags: ['#pitch', '#vente'],
-    duration: 60,
-    transcript: cues(60, [
-      'Je ne vais pas vous vendre un stylo.',
-      'Je vais vous vendre une signature.',
-      'Celle de votre premier contrat.',
-      'Celle de votre première maison.',
-      'Le stylo, je vous l’offre.',
-    ]),
-    likes: 980,
-    comments: 44,
-    shares: 30,
-    saves: 61,
-    convinced: 0,
-  },
-];
-
-/** Prises de démo : affichées aux visiteurs, et aux membres tant que l'API n'a pas de prises. */
-export const FEED_POSTS: FeedPost[] = DEMO_POSTS.map((p) => ({ ...p, viewer: NO_VIEWER, demo: true }));
 
 /* ---------- Conversion des réponses de l'API ---------- */
 
@@ -286,29 +157,6 @@ export function fromApiComment(c: ApiComment): FeedComment {
   };
 }
 
-export const FEED_COMMENTS: FeedComment[] = [
-  {
-    id: 'c1',
-    author: { id: 'u6', username: 'leo.oral', color: '#2F8FE8' },
-    text: 'La pause avant « posez le téléphone », parfaite.',
-    ago: '2 h',
-    likes: 48,
-  },
-  {
-    id: 'c2',
-    author: { id: 'u7', username: 'sarah_m', color: '#7CC4FA' },
-    text: 'Convaincue. Ton débit est super posé.',
-    ago: '5 h',
-    likes: 31,
-  },
-  {
-    id: 'c3',
-    author: { id: 'u8', username: 'theo.debat', color: '#4AA8FF' },
-    text: 'Pas d’accord sur le fond, mais quelle conclusion.',
-    ago: '1 j',
-    likes: 12,
-  },
-];
 
 /** 1840 → « 1,8 k » (même format que l'app). */
 export function formatCount(value: number): string {

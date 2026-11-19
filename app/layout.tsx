@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import { SITE } from '@/lib/site';
 
 import './globals.css';
+import { InstallManager } from '@/components/InstallManager';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -39,7 +40,6 @@ export const metadata: Metadata = {
     'application éloquence',
     'VHOA',
   ],
-  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'fr_FR',
@@ -70,7 +70,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="fr" className={`${inter.variable} antialiased`}>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        {children}
+        {/* Propositions d'installation de l'app (Paramètres, après inscription, feed). */}
+        <InstallManager />
+      </body>
     </html>
   );
 }

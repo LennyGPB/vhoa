@@ -108,8 +108,8 @@ export default function CgvPage() {
           </li>
           <li>
             La résiliation prend effet à la fin de la période déjà payée : tu gardes Premium jusque-là, puis plus aucun
-            prélèvement n’a lieu. La période en cours n’est pas remboursée, sauf dans le cas prévu ci-dessous (droit de
-            rétractation).
+            prélèvement n’a lieu. La période en cours n’est pas remboursée, sauf exercice du droit de rétractation
+            (ci-dessous).
           </li>
           <li>
             Si tu supprimes ton compte, l’abonnement est arrêté immédiatement et plus aucun prélèvement n’a lieu.
@@ -123,15 +123,23 @@ export default function CgvPage() {
 
       <LegalSection title="Droit de rétractation">
         <p>
-          En tant que consommateur, tu disposes en principe d’un délai de 14 jours après la souscription pour te
-          rétracter. Au moment de payer, tu demandes à profiter de Premium tout de suite et tu reconnais renoncer à ce
-          droit (article L221-28 du Code de la consommation).
+          Tu disposes de 14 jours à compter de ta souscription pour te rétracter, sans avoir à te justifier (articles
+          L221-18 et suivants du Code de la consommation). Pour cela, écris-nous à {mail} en indiquant ta décision : tu
+          peux utiliser le formulaire type de rétractation ou nous l’écrire simplement.
         </p>
         <p>
-          Malgré cela, si tu changes d’avis dans les 14 jours suivant ta première souscription, écris-nous à {mail} :
-          nous te remboursons la part de l’abonnement correspondant à la période restante, sous 14 jours, avec le même
-          moyen de paiement.
+          Nous te remboursons la totalité du montant payé au plus tard 14 jours après avoir reçu ta demande, avec le même
+          moyen de paiement. L’abonnement prend alors fin immédiatement. Ce droit s’applique à la première souscription,
+          pas aux renouvellements.
         </p>
+        <p>
+          <strong>Formulaire type de rétractation</strong> (à recopier dans ton email) :
+        </p>
+        <blockquote className="border-l-2 border-white/15 pl-4 text-white/70">
+          À l’attention de {LEGAL.editor}, {LEGAL.address}, {LEGAL.email} : je notifie par la présente ma rétractation
+          du contrat portant sur l’abonnement VHOA Premium, souscrit le [date]. Nom : [ton nom]. Pseudo VHOA : [ton
+          pseudo]. Email du compte : [ton email]. Date : [date].
+        </blockquote>
       </LegalSection>
 
       <LegalSection title="Garanties">

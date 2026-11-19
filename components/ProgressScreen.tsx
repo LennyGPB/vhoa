@@ -4,11 +4,21 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition, type KeyboardEvent, type PointerEvent } from 'react';
 
-import { loadCoachHistory, loadCoachStats, type CoachPoint, type CoachStats, type HistoryItem } from '@/app/actions/coach';
+import {
+  loadCoachHistory,
+  loadCoachQuota,
+  loadCoachStats,
+  type CoachPoint,
+  type CoachQuota,
+  type CoachStats,
+  type HistoryItem,
+} from '@/app/actions/coach';
+import { COACH_HREF } from '@/lib/site';
 import { notifySessionChange } from '@/lib/use-session';
 
 import { BlobBadge } from './BlobBadge';
-import { BackIcon, MicIcon, SparkIcon, VideoIcon } from './icons';
+import { MicIcon, SparkIcon, VideoIcon } from './icons';
+import { PREMIUM_ANALYSES } from './premium/shared';
 
 /* Débit idéal à l'oral : 110 à 170 mots/min (comme paceLabel côté API). */
 const IDEAL = [110, 170] as const;
@@ -19,15 +29,20 @@ const fullDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long
 
 type State = { kind: 'loading' } | { kind: 'error' } | { kind: 'locked' } | { kind: 'ready'; stats: CoachStats };
 
-/** « Ma progression » : l'évolution du débit et des mots parasites, puis l'historique des analyses. */
+/**
+ * Onglet « Coach IA » : lancer une analyse (avec le quota du mois), puis la progression
+ * (débit, mots parasites) et l'historique des analyses, réservés à Premium.
+ */
 export function ProgressScreen() {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [more, startMore] = useTransition();
+  const [quota, setQuota] = useState<CoachQuota | null>(null);
 
   useEffect(() => {
+    loadCoachQuota().then((res) => res.ok && setQuota(res.data));
     Promise.all([loadCoachStats(), loadCoachHistory()]).then(([stats, history]) => {
       if ((!stats.ok && stats.code === 'AUTH') || (!history.ok && history.code === 'AUTH')) {
         notifySessionChange();
@@ -57,13 +72,12 @@ export function ProgressScreen() {
       <div aria-hidden className="pointer-events-none fixed inset-0">
         <span className="soft-blob -left-56 -top-40 size-[560px] opacity-45" />
       </div>
-      <main className="relative mx-auto flex max-w-lg flex-col gap-5 px-5 pb-40 pt-[max(env(safe-area-inset-top),16px)]">
-        <header className="flex items-center gap-3">
-          <Link href="/profil" aria-label="Retour au profil" className="glass grid size-11 place-items-center rounded-full text-white">
-            <BackIcon size={20} />
-          </Link>
-          <h1 className="text-[22px] font-bold tracking-[-0.02em]">Ma progression</h1>
+      <main className="relative mx-auto flex max-w-lg flex-col gap-5 px-5 pb-40 pt-[max(env(safe-area-inset-top),16px)] lg:max-w-4xl lg:pb-16">
+        <header className="px-1 pt-2">
+          <h1 className="text-[30px] font-bold tracking-[-0.03em]">Coach IA</h1>
         </header>
+
+        <NewAnalysis quota={quota} />
 
         {state.kind === 'loading' && (
           <div aria-label="Chargement" className="flex flex-col gap-3">
@@ -82,32 +96,82 @@ export function ProgressScreen() {
           ) : (
             <>
               <Summary stats={state.stats} />
-              <ChartCard
-                title="Ton débit"
-                unit="mots/min"
-                hint="La bande bleue, c’est la zone idéale à l’oral (110 à 170 mots par minute)."
-                points={state.stats.series}
-                pick={(p) => p.wordsPerMinute}
-                digits={0}
-                band={IDEAL}
-                floor={60}
-                ceil={200}
-              />
-              <ChartCard
-                title="Mots parasites"
-                unit="par min"
-                hint="« Euh », « genre », « du coup »… Plus la courbe descend, mieux c’est."
-                points={state.stats.series}
-                pick={(p) => p.fillersPerMinute}
-                digits={1}
-                floor={0}
-                ceil={2}
-              />
+              {/* Sur grand écran, les deux courbes côte à côte. */}
+              <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2">
+                <ChartCard
+                  title="Ton débit"
+                  unit="mots/min"
+                  hint="La bande bleue, c’est la zone idéale à l’oral (110 à 170 mots par minute)."
+                  points={state.stats.series}
+                  pick={(p) => p.wordsPerMinute}
+                  digits={0}
+                  band={IDEAL}
+                  floor={60}
+                  ceil={200}
+                />
+                <ChartCard
+                  title="Mots parasites"
+                  unit="par min"
+                  hint="« Euh », « genre », « du coup »… Plus la courbe descend, mieux c’est."
+                  points={state.stats.series}
+                  pick={(p) => p.fillersPerMinute}
+                  digits={1}
+                  floor={0}
+                  ceil={2}
+                />
+              </div>
               <History items={items} hasMore={!!cursor} loading={more} onMore={loadMore} />
             </>
           ))}
       </main>
     </div>
+  );
+}
+
+/* ---------- Nouvelle analyse ---------- */
+
+/** Carte d'appel : enregistrer une prise pour le coach, avec les analyses restantes ce mois-ci. */
+function NewAnalysis({ quota }: { quota: CoachQuota | null }) {
+  const empty = quota !== null && quota.remaining <= 0;
+  return (
+    <section className="glass-solid relative overflow-hidden rounded-[26px] p-5">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -left-10 -top-14 size-48 rounded-full bg-[radial-gradient(closest-side,rgb(74_168_255/0.2),transparent)]"
+      />
+      <div className="relative flex items-center gap-4">
+        <BlobBadge size={52} seed={1.4}>
+          <SparkIcon size={22} />
+        </BlobBadge>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[17px] font-bold leading-tight">Analyse une prise</h2>
+          <p className="mt-0.5 text-[13.5px] leading-snug text-white/55">
+            {quota === null
+              ? 'Ton débit, tes mots parasites, ta structure.'
+              : empty
+                ? 'Plus d’analyse ce mois-ci.'
+                : `${quota.remaining} ${quota.remaining > 1 ? 'analyses restantes' : 'analyse restante'} ce mois-ci`}
+          </p>
+        </div>
+      </div>
+      {empty && !quota.isPremium ? (
+        <Link
+          href="/premium"
+          className="relative mt-4 flex h-12 items-center justify-center rounded-full bg-accent text-[15px] font-semibold text-white shadow-[0_14px_40px_-14px_var(--color-accent)] transition-[filter] hover:brightness-110">
+          Passer Premium pour {PREMIUM_ANALYSES} analyses
+        </Link>
+      ) : (
+        <Link
+          href={COACH_HREF}
+          aria-disabled={empty}
+          className={`relative mt-4 flex h-12 items-center justify-center gap-2 rounded-full text-[15px] font-semibold transition-[filter] ${
+            empty ? 'pointer-events-none bg-white/[0.08] text-white/45' : 'bg-accent text-white shadow-[0_14px_40px_-14px_var(--color-accent)] hover:brightness-110'
+          }`}>
+          <MicIcon size={17} />
+          {empty ? 'De nouvelles analyses le 1er du mois' : 'Enregistrer pour le coach'}
+        </Link>
+      )}
+    </section>
   );
 }
 

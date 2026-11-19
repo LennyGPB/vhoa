@@ -54,9 +54,9 @@ export async function loadOffer(): Promise<Result<Offer>> {
 }
 
 /** Ouvre le paiement Stripe et renvoie son adresse. */
-export async function startCheckout(plan: unknown, acceptWaiver: unknown): Promise<Result<{ url: string }>> {
-  if ((plan !== 'monthly' && plan !== 'yearly') || acceptWaiver !== true) return BAD;
-  const res = await call<{ url: string }>('/me/subscription/checkout', 'POST', { plan, acceptWaiver });
+export async function startCheckout(plan: unknown): Promise<Result<{ url: string }>> {
+  if (plan !== 'monthly' && plan !== 'yearly') return BAD;
+  const res = await call<{ url: string }>('/me/subscription/checkout', 'POST', { plan });
   // Seule une page de paiement Stripe est acceptée comme destination.
   if (res.ok && !res.data.url.startsWith('https://checkout.stripe.com/')) return BAD;
   return res;

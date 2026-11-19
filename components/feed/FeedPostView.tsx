@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { formatCount, type FeedPost } from '@/lib/feed';
 
 import { AvatarEffect, isEffectId } from '../AvatarEffect';
+import { BlobBadge } from '../BlobBadge';
+import { LiquidBlob } from '../LiquidBlob';
 
 import {
   BookmarkIcon,
@@ -21,7 +23,109 @@ import {
 
 /** Délai max entre deux taps pour un double tap. */
 const DOUBLE_TAP_MS = 260;
-const BARS = Array.from({ length: 28 }, (_, i) => i);
+/** Onde de fond : 26 barres, hauteurs max irrégulières comme un spectre sonore (en % de la zone). */
+const EQ = Array.from({ length: 26 }, (_, i) => Math.round(45 + 55 * Math.abs(Math.sin(i * 2.31) * Math.cos(i * 0.73))));
+/** Hauteur au repos (silence, pause) : les barres ne disparaissent jamais complètement. */
+const EQ_REST = 0.14;
+
+/* ---------- Analyse du vrai son (Web Audio) ---------- */
+
+let audioCtx: AudioContext | null = null;
+/** Un analyseur par balise audio : on ne peut brancher une balise qu'une seule fois. */
+const analysers = new WeakMap<HTMLMediaElement, AnalyserNode>();
+
+/**
+ * Branche l'audio d'une prise sur un analyseur de fréquences. Seulement si le moteur audio du
+ * navigateur tourne déjà (après un appui de l'utilisateur) : brancher une balise sur un moteur
+ * encore bloqué couperait le son. Sinon null, et l'onde reste calée sur les sous-titres.
+ * Le stockage autorise cette lecture (CORS du bucket R2) ; la balise a `crossOrigin`.
+ */
+async function analyserFor(media: HTMLMediaElement): Promise<AnalyserNode | null> {
+  try {
+    audioCtx ??= new AudioContext();
+    if (audioCtx.state !== 'running') {
+      // Sans appui préalable, resume() attend indéfiniment : on n'attend pas plus de 300 ms.
+      await Promise.race([audioCtx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 300))]);
+    }
+    if (audioCtx.state !== 'running') return null;
+    let analyser = analysers.get(media);
+    if (!analyser) {
+      const source = audioCtx.createMediaElementSource(media);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      analysers.set(media, analyser);
+    }
+    return analyser;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Anime l'onde au rythme de la parole : les phrases des sous-titres disent quand ça parle.
+ * Pendant une phrase, les barres montent, à une cadence calée sur son débit (lettres par seconde) ;
+ * dans les silences, elles retombent doucement. Sans sous-titres, l'onde bouge régulièrement.
+ * (L'analyse du vrai signal demanderait d'ouvrir les fichiers audio au site : réglage CORS du stockage.)
+ */
+function useVoiceBars(
+  post: FeedPost,
+  playing: boolean,
+  getTime: () => number,
+  getAnalyser: () => AnalyserNode | null,
+  bars: React.RefObject<(HTMLSpanElement | null)[]>,
+) {
+  useEffect(() => {
+    const els = bars.current;
+    const rest = () => els.forEach((el) => el && (el.style.transform = `scaleY(${EQ_REST})`));
+    if (!playing || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      rest();
+      return;
+    }
+    let raf = 0;
+    let level = EQ_REST;
+    let rate = 2;
+    let freq: Uint8Array<ArrayBuffer> | null = null;
+    const center = (EQ.length - 1) / 2;
+    const tick = (now: number) => {
+      // Vrai son : les graves (là où vit la voix) au centre, les aigus vers les bords.
+      const analyser = getAnalyser();
+      if (analyser) {
+        freq ??= new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(freq);
+        const data = freq;
+        els.forEach((el, i) => {
+          if (!el) return;
+          const bin = 2 + Math.round(Math.abs(i - center) * 1.6);
+          const v = Math.min(1, Math.pow(data[bin] / 255, 1.4) * 1.25);
+          el.style.transform = `scaleY(${EQ_REST + (1 - EQ_REST) * v})`;
+        });
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const t = getTime();
+      const cue = post.transcript.find((c) => t >= c.start && t < c.end);
+      const speaking = cue ? 1 : post.transcript.length ? 0 : 0.6;
+      // Montée rapide quand la voix arrive, retombée plus douce dans les silences.
+      level += (speaking - level) * (speaking > level ? 0.12 : 0.05);
+      if (cue) {
+        const perSecond = cue.text.length / Math.max(0.4, cue.end - cue.start);
+        rate += (Math.min(5, Math.max(1.6, perSecond / 4)) - rate) * 0.05;
+      }
+      const s = now / 1000;
+      els.forEach((el, i) => {
+        if (!el) return;
+        const wave = Math.sin(s * rate * (0.6 + (i % 5) * 0.11) + i * 1.9) * Math.sin(s * rate * 0.37 + i * 0.7);
+        el.style.transform = `scaleY(${EQ_REST + (1 - EQ_REST) * level * (0.2 + 0.8 * Math.abs(wave))})`;
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, post.transcript, getTime, getAnalyser, bars]);
+}
 
 /** Ce qui demande un compte : sans session, la page ouvre l'invitation à s'inscrire. */
 export type AccountAction = 'like' | 'comment' | 'save' | 'convinced' | 'follow';
@@ -37,9 +141,8 @@ export interface FeedPostHandlers {
   onOpenMenu: (post: FeedPost) => void;
 }
 
-/** Lien vers le profil de l'auteur (pas pour les prises de démo : leurs auteurs n'existent pas). */
+/** Lien vers le profil de l'auteur. */
 function AuthorLink({ post, className, children }: { post: FeedPost; className?: string; children: ReactNode }) {
-  if (post.demo) return <span className={className}>{children}</span>;
   return (
     <Link href={`/u/${post.author.id}`} className={className} aria-label={`Profil de @${post.author.username}`}>
       {children}
@@ -124,37 +227,64 @@ function AvatarFace({ post, size }: { post: FeedPost; size: number }) {
   );
 }
 
-/** Fond d'un post sans vidéo : avatar au centre, halo et onde qui bougent pendant la lecture. */
-function AudioStage({ post, playing }: { post: FeedPost; playing: boolean }) {
+/**
+ * Fond d'un post sans vidéo (D.A. blob) : un spectre sonore accroché en haut, et une grande goutte liquide
+ * derrière l'avatar. Halo et spectre ne bougent que pendant la lecture.
+ * Vitesse des gouttes constante : la changer relancerait leur animation (saut visible).
+ */
+function AudioStage({
+  post,
+  playing,
+  getTime,
+  getAnalyser,
+}: {
+  post: FeedPost;
+  playing: boolean;
+  getTime: () => number;
+  getAnalyser: () => AnalyserNode | null;
+}) {
   const state = playing ? 'running' : 'paused';
+  const bars = useRef<(HTMLSpanElement | null)[]>([]);
+  useVoiceBars(post, playing, getTime, getAnalyser, bars);
+  // Chaque prise a sa propre forme de goutte (graine tirée de son identifiant).
+  const seed = [...post.id].reduce((n, c) => n + c.charCodeAt(0), 0) % 97;
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,#0a162c_0%,#174a8c_55%,#050a14_100%)]">
+    <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(120%_80%_at_50%_30%,#0f2a57_0%,#081631_45%,#03070f_100%)]">
       {/* Lueurs qui dérivent. */}
-      <span className="soft-blob -left-24 top-10 size-[420px] opacity-70" />
+      <span className="soft-blob -left-32 top-0 size-[440px] opacity-50" />
       <span
-        className="soft-blob -right-32 bottom-24 size-[460px] opacity-60"
+        className="soft-blob -right-40 bottom-16 size-[480px] opacity-45"
         style={{ ['--dx' as string]: '-50px', ['--dy' as string]: '-30px', ['--dur' as string]: '17s' }}
       />
 
-      <div className="absolute inset-x-0 top-[24%] flex flex-col items-center">
-        <div className="relative">
+      {/* L'onde de voix, collée en haut : chaque barre descend et remonte depuis le bord haut. */}
+      <div aria-hidden className="absolute inset-x-3 top-0 flex h-[46%] items-start justify-between">
+        {EQ.map((height, i) => (
           <span
-            aria-hidden
-            className="feed-halo absolute -inset-5 rounded-full bg-accent/30 blur-xl"
-            style={{ animationPlayState: state }}
+            key={i}
+            ref={(el) => {
+              bars.current[i] = el;
+            }}
+            className="w-[4px] origin-top rounded-b-full bg-gradient-to-b from-[#9fd4ff] via-accent/80 to-accent/0 shadow-[0_0_10px_rgb(74_168_255/0.45)] will-change-transform"
+            style={{ height: `${height}%`, transform: `scaleY(${EQ_REST})` }}
           />
-          <span className="relative block rounded-full ring-2 ring-white/80">
-            <Avatar post={post} size={96} />
-          </span>
-        </div>
-        <div aria-hidden className="mt-8 flex h-10 items-center gap-[3px]">
-          {BARS.map((i) => (
+        ))}
+      </div>
+
+      <div className="absolute inset-x-0 top-[19%] flex flex-col items-center">
+        {/* La grande goutte, avec l'avatar posé au centre. */}
+        <div className="relative grid w-[min(64vw,280px)] place-items-center">
+          <LiquidBlob className="h-auto w-full" speed={0.45} seed={seed} intensity={1.4} glow={false} />
+          <div className="absolute">
             <span
-              key={i}
-              className="feed-bar h-full w-[3px] origin-center rounded-full bg-white/80"
-              style={{ animationDelay: `${-((i * 137) % 900)}ms`, animationPlayState: state }}
+              aria-hidden
+              className="feed-halo absolute -inset-6 rounded-full bg-accent/35 blur-xl"
+              style={{ animationPlayState: state }}
             />
-          ))}
+            <span className="relative block rounded-full ring-2 ring-white/80 shadow-[0_12px_40px_-8px_rgb(0_0_0/0.6)]">
+              <Avatar post={post} size={96} />
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -190,9 +320,41 @@ function RailButton({
   );
 }
 
+/**
+ * « Convaincu » : le vote du défi, l'action qui compte le plus. Pastille en verre centrée sous les
+ * onglets : goutte bleue animée, le mot et le nombre de votes. Une fois voté, elle passe en bleu plein.
+ */
+function ConvincedButton({ post, onClick }: { post: FeedPost; onClick: () => void }) {
+  const on = post.viewer.isConvinced;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${on ? 'Retirer mon vote Convaincu' : 'Voter Convaincu'}, ${formatCount(post.convinced)}`}
+      aria-pressed={on}
+      className={`relative flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-4 transition-[background-color,box-shadow,transform] active:scale-[0.94] ${
+        on
+          ? 'bg-accent shadow-[0_10px_34px_-8px_var(--color-accent),inset_0_0_0_1.5px_rgb(255_255_255/0.6)]'
+          : 'glass shadow-[0_10px_30px_-12px_rgb(74_168_255/0.8),inset_0_0_0_1px_rgb(74_168_255/0.45)]'
+      }`}>
+      <span key={String(on)} className={`relative grid place-items-center ${on ? 'feed-pop' : ''}`}>
+        <span aria-hidden className="feed-halo absolute -inset-1.5 rounded-full bg-accent/50 blur-md" />
+        <BlobBadge size={38} seed={2.2}>
+          <CheckCircleIcon size={20} filled={on} />
+        </BlobBadge>
+      </span>
+      <span className="flex flex-col items-start leading-none">
+        <span className="whitespace-nowrap text-[15px] font-bold text-white">{on ? 'Convaincu ✓' : 'Convaincu ?'}</span>
+        <span className={`mt-1 whitespace-nowrap text-[12px] font-semibold ${on ? 'text-white/85' : 'text-azure'}`}>
+          {formatCount(post.convinced)} {post.convinced > 1 ? 'votes' : 'vote'}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 /** Colonne d'actions en verre, à droite du post. */
 function ActionRail({ post, handlers }: { post: FeedPost; handlers: FeedPostHandlers }) {
-  const canVote = post.theme?.phase === 'open';
   const { viewer } = post;
   const act = (action: PostAction) => () => handlers.onAction(post, action);
   return (
@@ -237,18 +399,6 @@ function ActionRail({ post, handlers }: { post: FeedPost; handlers: FeedPostHand
             <BookmarkIcon size={26} filled={viewer.isSaved} />
           </span>
         </RailButton>
-        {canVote && (
-          <RailButton
-            label={viewer.isConvinced ? 'Retirer mon vote Convaincu' : 'Voter Convaincu'}
-            count={post.convinced}
-            caption="Convaincu"
-            active={viewer.isConvinced}
-            onClick={act('convinced')}>
-            <span key={String(viewer.isConvinced)} className={viewer.isConvinced ? 'feed-pop text-accent' : ''}>
-              <CheckCircleIcon size={26} filled={viewer.isConvinced} />
-            </span>
-          </RailButton>
-        )}
         <RailButton label="Plus d’options" onClick={() => handlers.onOpenMenu(post)}>
           <MoreIcon size={24} />
         </RailButton>
@@ -305,6 +455,27 @@ export function FeedPostView({
 
   const playing = active && !userPaused;
   const time = usePlayback(post, playing, mediaRef);
+  // Heure de lecture lue à chaque image par l'onde : le vrai média s'il existe, sinon l'horloge simulée.
+  const timeRef = useRef(time);
+  useEffect(() => {
+    timeRef.current = time;
+  }, [time]);
+  const getTime = useCallback(() => mediaRef.current?.currentTime ?? timeRef.current, []);
+
+  // Prise audio : brancher l'analyseur du vrai son dès que la lecture démarre (réessayé à chaque reprise).
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const getAnalyser = useCallback(() => analyserRef.current, []);
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (!playing || post.type !== 'audio' || !media || analyserRef.current) return;
+    let cancelled = false;
+    analyserFor(media).then((a) => {
+      if (!cancelled) analyserRef.current = a;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playing, post.type]);
   const cue = post.transcript.find((c) => time >= c.start && time < c.end);
   const progress = time / post.duration;
 
@@ -347,7 +518,7 @@ export function FeedPostView({
     <section
       data-post={post.id}
       aria-label={`Prise de @${post.author.username} : ${post.title}`}
-      className="relative flex h-svh snap-start snap-always items-center justify-center md:gap-5 md:py-5">
+      className="relative flex h-full snap-start snap-always items-center justify-center md:gap-5 md:py-5">
       <div className="relative h-full w-full overflow-hidden bg-black md:aspect-[9/16] md:w-auto md:rounded-[28px] md:shadow-[0_30px_80px_-30px_rgb(0_0_0/0.9),0_0_0_1px_rgb(255_255_255/0.06)]">
         {/* Média : vidéo, audio ou lecture simulée (démo). */}
         {hasVideo ? (
@@ -366,13 +537,17 @@ export function FeedPostView({
           )
         ) : (
           <>
-            <AudioStage post={post} playing={playing} />
+            <AudioStage post={post} playing={playing} getTime={getTime} getAnalyser={getAnalyser} />
             {post.mediaUrl && near && (
               <audio
                 ref={(el) => {
+                  // Nouvelle balise (la prise revient à l'écran) : son analyseur à elle, s'il existe.
+                  if (el !== mediaRef.current) analyserRef.current = el ? (analysers.get(el) ?? null) : null;
                   mediaRef.current = el;
                 }}
                 src={post.mediaUrl}
+                // Lecture autorisée par le CORS du stockage : nécessaire pour analyser le son.
+                crossOrigin="anonymous"
                 loop
                 preload="auto"
               />
@@ -422,6 +597,15 @@ export function FeedPostView({
             <HeartIcon size={96} filled />
           </span>
         ))}
+
+        {/* Vote « Convaincu », centré sous les onglets Pour toi / Abonnements (défi en cours). */}
+        {post.theme?.phase === 'open' && (
+          <div className="pointer-events-none absolute inset-x-0 top-[calc(max(env(safe-area-inset-top),12px)+52px)] z-10 flex justify-center md:top-6">
+            <div className="pointer-events-auto">
+              <ConvincedButton post={post} onClick={() => handlers.onAction(post, 'convinced')} />
+            </div>
+          </div>
+        )}
 
         {/* Bas du post : infos + actions (mobile), puis barre de progression. La place de la barre d'onglets est réservée. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col pb-[calc(env(safe-area-inset-bottom)+104px)] md:pb-4">

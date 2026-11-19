@@ -16,11 +16,14 @@ export function Sheet({
   onClose,
   title,
   children,
+  tall = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Presque tout l'écran (fenêtre Premium : le bouton d'achat visible sans défiler). */
+  tall?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Rendu dans <body> (après le chargement) : un parent avec du flou (backdrop-filter) ou une
@@ -54,8 +57,8 @@ export function Sheet({
         aria-label={title}
         tabIndex={-1}
         inert={!open}
-        className={`absolute inset-x-0 bottom-0 mx-auto flex max-h-[80svh] max-w-lg flex-col rounded-t-[28px] bg-[#16171b] shadow-[0_-20px_60px_rgb(0_0_0/0.5),inset_0_1px_0_rgb(255_255_255/0.06)] outline-none transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.9,0.2,1)] ${
-          open ? 'translate-y-0' : 'translate-y-full'
+        className={`absolute inset-x-0 bottom-0 mx-auto flex ${tall ? 'max-h-[94dvh]' : 'max-h-[80svh]'} max-w-lg flex-col rounded-t-[28px] bg-[#16171b] shadow-[0_-20px_60px_rgb(0_0_0/0.5),inset_0_1px_0_rgb(255_255_255/0.06)] outline-none transition-[transform,visibility] duration-[420ms] ease-[cubic-bezier(0.2,0.9,0.2,1)] ${
+          open ? 'visible translate-y-0' : 'invisible translate-y-full'
         }`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-between px-5 pb-2 pt-3">

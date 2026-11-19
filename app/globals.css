@@ -352,3 +352,14 @@ body {
   }
 }
 
+
+/* Reflet qui traverse le bandeau de l'offre de lancement. */
+@keyframes banner-shine {
+  0%,
+  60% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
